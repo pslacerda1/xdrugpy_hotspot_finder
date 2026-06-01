@@ -46,14 +46,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Box::new(io::stdin())
     } else {
         let file = File::open(args.input.clone())
-            .expect(&format!("Can't read file '{}'", &args.input.as_str()));
+            .map_err(|e| format!("Can't open file '{}': {}", &args.input.as_str(), e))?;
         Box::new(file)
     };
 
     let mut pdb_str = String::new();
     input_file
         .read_to_string(&mut pdb_str)
-        .expect("Failed to read input");
+        .map_err(|e| format!("Failed to read input: {}", e))?;
 
     //
     // Determmina saída do programa.
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Box::new(
             File::create(args.output.clone())
-                .expect(&format!("Can't write to file '{}'", &args.output.as_str())),
+                .map_err(|e| format!("Can't write to file '{}': {}", &args.output.as_str(), e))?,
         )
     };
 
@@ -74,5 +74,5 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.num_pseudoatoms,
         args.pseudoatom_radius,
     )?;
-    return Ok(());
+    Ok(())
 }
