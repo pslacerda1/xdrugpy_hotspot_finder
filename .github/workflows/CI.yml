@@ -1,0 +1,63 @@
+# By Gemini
+name: CI Build
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # 1. Quick Quality Check (Ensures code compiles and format is correct)
+  fmt-clippy:
+    name: Format & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run Clippy (Ignoring range_contains)
+        run: cargo clippy --all-targets --all-features -- -D warnings -A clippy::range_contains
+
+  # 2. Production Build Job (Compiles release binaries for each OS)
+  build:
+    name: Build Release on ${{ matrix.os }}
+    needs: fmt-clippy
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-release
+
+      # 💡 Compiles a release binary, verifying dependencies against Cargo.lock
+      - name: Build Release Binary
+        run: cargo build --release --locked

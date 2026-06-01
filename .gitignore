@@ -1,0 +1,8 @@
+# Rust
+/target
+
+# PyCharm
+.idea/
+
+# VSCode
+.vscode/
