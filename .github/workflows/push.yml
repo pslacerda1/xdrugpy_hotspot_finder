@@ -92,6 +92,6 @@ jobs:
           body: |
             Automated multi-platform compilation from successful CI run.
             Commit: ${{ github.sha }}
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: true
           files: target/release/${{ matrix.asset_name }}
