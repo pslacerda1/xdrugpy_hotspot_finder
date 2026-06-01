@@ -1,10 +1,7 @@
-# By Gemini
-name: CI Build
+name: pull-request build-test
 on:
-  push:
-    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,7 +11,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # 1. Quick Quality Check (Ensures code compiles and format is correct)
+  # 1. Quick Quality Check
   fmt-clippy:
     name: Format & Lint
     runs-on: ubuntu-latest
@@ -37,8 +34,8 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   # 2. Production Build Job (Compiles release binaries for each OS)
-  build:
-    name: Build Release on ${{ matrix.os }}
+  build-test:
+    name: Build and Test on ${{ matrix.os }}
     needs: fmt-clippy
     runs-on: ${{ matrix.os }}
     strategy:
@@ -57,7 +54,14 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-release
+        
+        # Build and run tests (no tests currently, but encouraged to add in the future)
+      - name: Build tests
+        run: cargo test --no-run --locked
 
-      # 💡 Compiles a release binary, verifying dependencies against Cargo.lock
+      - name: Run tests
+        run: cargo test --verbose
+      
+      # 💡 Build release  versions
       - name: Build Release Binary
         run: cargo build --release --locked

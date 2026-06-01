@@ -1,0 +1,97 @@
+name: build-test-release
+on:
+  push:
+    branches: [ "main" ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  # 1. Quick Quality Check (Ensures code compiles and format is correct)
+  fmt-clippy:
+    name: Format & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run Linter
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+# 2. Build for all platforms and upload to the exact same release
+  build-and-release:
+    name: Release for ${{ matrix.os }}
+    needs: fmt-clippy
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: xdrugpy_hotspot_finder
+            asset_name: xdrugpy_hotspot_finder-linux
+          - os: windows-latest
+            artifact_name: xdrugpy_hotspot_finder.exe
+            asset_name: xdrugpy_hotspot_finder-windows.exe
+          - os: macos-latest
+            artifact_name: xdrugpy_hotspot_finder
+            asset_name: xdrugpy_hotspot_finder-macos
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-release
+        
+      # Build and run tests (no tests currently, but I'm self-encouraging to add in the future)
+      - name: Build tests
+        run: cargo test --no-run --locked
+
+      - name: Run tests
+        run: cargo test --verbose
+      
+      # Build release  versions
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      # 💡 Rename the raw binary so it has a recognizable OS tag when downloaded
+      - name: Rename binary asset
+        shell: bash
+        run: |
+          mv target/release/${{ matrix.artifact_name }} target/release/${{ matrix.asset_name }}
+
+      # 💡 Uploads dynamically to a shared release tag. 
+      - name: Upload OS asset to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "latest-build.${{ github.run_number }}"
+          name: "Continuous Release #${{ github.run_number }}"
+          body: |
+            Automated multi-platform compilation from successful CI run.
+            Commit: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: target/release/${{ matrix.asset_name }}
