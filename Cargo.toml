@@ -17,3 +17,6 @@ petgraph = "0.8.3"
 ordered-float = "5.3.0"
 derive_more = { version = "2.1.1", features = ["full"] }
 clap = { version = "4.6.1", features = ["derive"] }
+
+[lints.clippy]
+manual_range_contains = "allow"

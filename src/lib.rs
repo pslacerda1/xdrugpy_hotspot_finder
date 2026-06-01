@@ -66,7 +66,6 @@ fn calc_distance(a: &Atom, b: &Atom) -> f32 {
     (dx * dx + dy * dy + dz * dz).sqrt()
 }
 
-#[allow(clippy::manual_contains)]
 fn determine_class(
     strength_main: u32,
     centroid_distance: f32,
@@ -243,7 +242,9 @@ pub fn find_hotspots(
             .max_by(|&n1, &n2| g[*n1].strength.cmp(&g[*n2].strength))
             .unwrap();
         for n in component.iter() {
-            if n0 != n && let Some(e) = g.find_edge(*n0, *n) {
+            if n0 != n
+                && let Some(e) = g.find_edge(*n0, *n)
+            {
                 let data = g.edge_weight(e).unwrap(); // todos os edges têm EdgeData
                 if data.centroid_distance > centroid_distance {
                     centroid_distance = data.centroid_distance;
