@@ -12,6 +12,8 @@ use petgraph::algo::kosaraju_scc;
 use petgraph::graph::NodeIndex;
 use petgraph::{Graph, Undirected};
 use std::collections::HashMap;
+use std::io::{Write};
+use anyhow::{Error, Ok, Result};
 
 type Atom = [OrderedFloat<f32>; 3];
 
@@ -112,16 +114,17 @@ pub struct Hotspot {
 
 pub fn find_hotspots(
     pdb_str: String,
+    writer: &mut dyn Write,
     clash_threshold: f32,
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-) -> (Vec<String>, Vec<Hotspot>, Vec<Cluster>) {
+) -> Result<(), Error> {
     //
     // Lê arquivo PDB.
     //
     let mut prot: Vec<Atom> = Vec::new();
-    let mut prot_lines: Vec<String> = Vec::new();
+    let mut prot_pdb_lines: Vec<String> = Vec::new();
     let mut clusters: Vec<Cluster> = Vec::new();
 
     for line in pdb_str.lines() {
@@ -156,7 +159,7 @@ pub fn find_hotspots(
             ];
             if is_atom {
                 prot.push(atom);
-                prot_lines.push(String::from(line));
+                prot_pdb_lines.push(String::from(line));
             }
             if is_het && let Some(cluster) = clusters.last_mut() {
                 cluster.atoms.push(atom);
@@ -330,5 +333,59 @@ pub fn find_hotspots(
         }
     }
 
-    (prot_lines, hotspots, clusters)
+    // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
+    for (c_idx, c) in clusters.iter().enumerate() {
+        writeln!(writer, "REMARK Object=cluster={} S={}", c_idx, c.strength)?;
+    }
+    for (hs_idx, hs) in hotspots.iter().enumerate() {
+        writeln!(
+            writer,
+            "REMARK Object=hotspot_{} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            hs_idx + 1,
+            hs.class,
+            hs.strength_total,
+            hs.strength_0,
+            hs.strength_1.unwrap_or(0),
+            hs.strength_z.unwrap_or(0),
+            hs.centroid_distance.unwrap_or(0f32),
+            hs.max_distance,
+            hs.clusters.len(),
+        )?;
+    }
+
+    // Copia proteína integralmente do arquivo de entrada.
+    writeln!(writer, "HEADER prot")?;
+    for line in prot_pdb_lines {
+        writeln!(writer, "{}", line)?;
+    }
+    
+    // Clusters têm cadeia Z
+    let mut a_idx = 0usize;
+    for (c_idx, c) in clusters.iter().enumerate() {
+        writeln!(writer, "HEADER cluster_{}", c_idx + 1)?;
+        for a in c.atoms.iter() {
+            a_idx += 1;
+            writeln!(
+                writer,
+                "HETATM{:>5}  X   XDP Z   1    {:8.3}{:8.3}{:8.3}  1.00  0.00           X",
+                a_idx, a[0].0, a[1].0, a[2].0
+            )?;
+        }
+    }
+
+    // Hotspots têm cadeia Y
+    for (hs_idx, hs) in hotspots.iter().enumerate() {
+        writeln!(writer, "HEADER hotspot_{}", hs_idx + 1)?;
+        for c in hs.clusters.iter() {
+            for a in c.atoms.iter() {
+                a_idx += 1;
+                writeln!(
+                    writer,
+                    "HETATM{:>5}  X   XDP Y   1    {:8.3}{:8.3}{:8.3}  1.00  0.00           X",
+                    a_idx, a[0].0, a[1].0, a[2].0
+                )?;
+            }
+        }
+    }
+    Ok(())
 }
