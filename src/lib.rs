@@ -4,46 +4,34 @@ extern crate kiddo;
 extern crate ordered_float;
 extern crate petgraph;
 
+use itertools::Itertools;
 use kiddo::ImmutableKdTree;
 use kiddo::SquaredEuclidean;
 use ordered_float::OrderedFloat;
 use petgraph::algo::kosaraju_scc;
-use petgraph::{Graph, Undirected};
 use petgraph::graph::NodeIndex;
+use petgraph::{Graph, Undirected};
+use std::cmp::Ordering;
 use std::collections::HashMap;
-use itertools::Itertools;
-
 
 type Atom = [OrderedFloat<f32>; 3];
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct Cluster {
-    title: String,
-    strength: u32,
-    atoms: Vec<Atom>,
-    lines: Vec<String>
+pub struct Cluster {
+    pub title: String,
+    pub strength: u32,
+    pub atoms: Vec<Atom>,
+    lines: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-enum HotspotClass {
+pub enum HotspotClass {
     D,
     DS,
     DL,
     B,
     BS,
     BL,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct Hotspot<'a> {
-    class: HotspotClass,
-    strength_total: u32,
-    strength_0: u32,
-    strength_1: Option<u32>,
-    strength_z: Option<u32>,
-    max_distance: OrderedFloat<f32>,
-    centroid_distance: OrderedFloat<f32>,
-    clusters: Vec<&'a Cluster>,
 }
 
 fn calc_centroid(atoms: &[Atom]) -> Atom {
@@ -73,10 +61,11 @@ fn calc_distance(a: &Atom, b: &Atom) -> f32 {
 
 fn determine_class(
     strength_0: u32,
-    centroid_distance: f32,
+    centroid_distance: Option<f32>,
     max_distance: f32,
 ) -> Option<HotspotClass> {
     let class: Option<HotspotClass>;
+    let centroid_distance = centroid_distance.unwrap_or(0f32);
 
     if strength_0 >= 16 && centroid_distance < 8.0 && max_distance >= 10.0 {
         class = Some(HotspotClass::D);
@@ -110,14 +99,25 @@ fn determine_class(
     class
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Hotspot {
+    pub class: HotspotClass,
+    pub strength_total: u32,
+    pub strength_0: u32,
+    pub strength_1: Option<u32>,
+    pub strength_z: Option<u32>,
+    pub max_distance: f32,
+    pub centroid_distance: Option<f32>,
+    pub clusters: Vec<Cluster>,
+}
+
 pub fn find_hotspots(
     pdb_str: String,
-    writer: &mut dyn std::io::Write,
     clash_threshold: f32,
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Vec<Hotspot> {
     //
     // Lê arquivo PDB.
     //
@@ -171,55 +171,62 @@ pub fn find_hotspots(
     //
     let _prot_f32_vec: Vec<[f32; 3]> = prot.iter().map(|a| [a[0].0, a[1].0, a[2].0]).collect();
     let tree = ImmutableKdTree::<f32, 3>::new_from_slice(_prot_f32_vec.as_slice());
-    let mut g = Graph::<&Cluster, EdgeData, Undirected>::new_undirected();
+    let mut g = Graph::<usize, EdgeData, Undirected>::new_undirected();
     let mut centroids_map: HashMap<&Cluster, Atom> = HashMap::new();
 
-    for c in clusters.iter() {
+    for (i, c) in clusters.iter().enumerate() {
         if c.strength >= 5 {
-            g.add_node(c);
+            g.add_node(i);
             centroids_map.insert(c, calc_centroid(&c.atoms));
         }
     }
 
+    // Calcula impedimentos estéreos (clashes) entre sítios consenso.
     for n1 in g.node_indices() {
         for n2 in g.node_indices() {
-            if n1 >= n2 {
+            if n1 > n2 {
                 continue;
             }
             let mut max_distance: f32 = 0f32;
             let mut clashes: usize = 0;
-            let c1 = g[n1];
-            let c2 = g[n2];
+            let i1 = g[n1];
+            let i2 = g[n2];
+            let c1 = &clusters[i1];
+            let c2 = &clusters[i2];
 
-            for at1 in c1.atoms.iter() {
-                for at2 in c2.atoms.iter() {
-                    // Distância máxima entre dois clusters.
-                    let dist = calc_distance(at1, at2);
-                    if dist > max_distance {
-                        max_distance = dist;
-                    }
-                    // 25 pseudo-átomos entre cada at1 e at2 de cada cluster.
-                    for i in 0..num_pseudoatoms {
-                        let t = i as f32 / num_pseudoatoms as f32;
-                        let ball: [f32; 3] = [
-                            at1[0].0 + (at2[0].0 - at1[0].0) * t,
-                            at1[1].0 + (at2[1].0 - at1[1].0) * t,
-                            at1[2].0 + (at2[2].0 - at1[2].0) * t,
-                        ];
-                        clashes += tree
-                            .within_unsorted::<SquaredEuclidean>(
-                                &ball,
-                                pseudoatom_radius * pseudoatom_radius,
-                            )
-                            .len();
+            if n1 != n2 {
+                // self-loops não têm impedimentos estéreos
+                for at1 in c1.atoms.iter() {
+                    for at2 in c2.atoms.iter() {
+                        // Distância máxima entre dois clusters.
+                        let dist = calc_distance(at1, at2);
+                        if dist > max_distance {
+                            max_distance = dist;
+                        }
+                        // 25 pseudo-átomos entre cada at1 e at2 de cada cluster.
+                        for i in 0..num_pseudoatoms {
+                            let t = i as f32 / num_pseudoatoms as f32;
+                            let ball: [f32; 3] = [
+                                at1[0].0 + (at2[0].0 - at1[0].0) * t,
+                                at1[1].0 + (at2[1].0 - at1[1].0) * t,
+                                at1[2].0 + (at2[2].0 - at1[2].0) * t,
+                            ];
+                            clashes += tree
+                                .within_unsorted::<SquaredEuclidean>(
+                                    &ball,
+                                    pseudoatom_radius * pseudoatom_radius,
+                                )
+                                .len();
+                        }
                     }
                 }
             }
+
             // Cria links quando não há impedimentos estéreos entre os clusters.
             let clash_index = clashes as f32 / (c1.atoms.len() as f32 * c2.atoms.len() as f32);
             if clash_index < clash_threshold {
-                let centroid1 = centroids_map[c1];
-                let centroid2 = centroids_map[c2];
+                let centroid1 = centroids_map[&c1];
+                let centroid2 = centroids_map[&c2];
                 let centroid_distance = calc_distance(&centroid1, &centroid2);
                 g.add_edge(
                     n1,
@@ -236,16 +243,11 @@ pub fn find_hotspots(
     //
     // Hotspots são (sub)componentes conectados que agrupam clusters.
     //
-    
-    let mut lets_try: Vec<Vec<NodeIndex>> = kosaraju_scc(&g);
-    let component_vec = lets_try.iter().cloned().collect::<Vec<_>>();
-    for component in  component_vec.into_iter() {
-        let i = if deep_search {
-            1
-        } else {
-            component.len()
-        };
-        for k in i..component.len()+1 {
+
+    let mut lets_try: Vec<Vec<NodeIndex>> = Vec::new();
+    for component in kosaraju_scc(&g) {
+        let i = if deep_search { 1 } else { component.len() };
+        for k in i..component.len() + 1 {
             for subcomponent in component.iter().combinations(k) {
                 let v = subcomponent.iter().map(|&&n| n).collect();
                 lets_try.push(v);
@@ -255,34 +257,49 @@ pub fn find_hotspots(
 
     let mut hotspots: Vec<Hotspot> = Vec::new();
     for component in lets_try.into_iter() {
-        let mut max_distance = 0f32;
-        let mut centroid_distance = 0f32;
-
         //
         // Hotspots têm uma distância inter-centroids máxima.
         //
         let n0 = component
             .iter()
-            .max_by(|&n1, &n2| g[*n1].strength.cmp(&g[*n2].strength))
-            .expect("Any component must have at least one node");
+            .max_by(|&n1, &n2| clusters[g[*n1]].strength.cmp(&clusters[g[*n2]].strength))
+            .expect("All components must have at least one node");
 
-        for n in component.iter() {
-            if n0 != n
-                && let Some(e) = g.find_edge(*n0, *n)
-            {
-                let data = g.edge_weight(e).unwrap(); // todos os edges têm EdgeData
-                if data.centroid_distance > centroid_distance {
-                    centroid_distance = data.centroid_distance;
+        let max_centroid_distance: f32 = component
+            .iter()
+            .map(|n| {
+                if n0 != n
+                    && let Some(e) = g.find_edge(*n0, *n)
+                {
+                    let data = g.edge_weight(e).unwrap(); // todos os edges têm EdgeData
+                    data.centroid_distance
+                } else {
+                    0f32
                 }
-            }
-        }
+            })
+            .max_by(|a, b| {
+                if a == b {
+                    Ordering::Equal
+                } else if a > b {
+                    Ordering::Greater
+                } else {
+                    Ordering::Less
+                }
+            })
+            .expect("All components must have at least one not");
+        let centroid_distance = if max_centroid_distance == 0f32 {
+            None
+        } else {
+            Some(max_centroid_distance)
+        };
 
         //
         // Hotspots têm um comprimento.
         //
+        let mut max_distance = 0f32;
         for n1 in component.iter() {
             for n2 in component.iter() {
-                if n1 >= n2 {
+                if n1 > n2 {
                     continue;
                 }
                 if let Some(e) = g.find_edge(*n1, *n2) {
@@ -298,50 +315,29 @@ pub fn find_hotspots(
         // Determina a classe do hotspot, se houver.
         //
         let mut table: Vec<u32> = component
-                .iter()
-                .map(|&n| g[n].strength)
-                .sorted()
-                .collect();
+            .iter()
+            .map(|&n| clusters[g[n]].strength)
+            .sorted()
+            .collect();
         let strength_0 = table.pop().unwrap();
         let strength_1 = table.pop();
         let strength_z = table.first().copied();
-        
+
         let class = determine_class(strength_0, centroid_distance, max_distance);
         if let Some(class) = class {
             let hs = Hotspot {
                 class,
-                strength_total: component.iter().map(|n| g[*n].strength).sum(),
+                strength_total: component.iter().map(|n| clusters[g[*n]].strength).sum(),
                 strength_0,
                 strength_1,
                 strength_z,
-                centroid_distance: OrderedFloat::from(centroid_distance),
-                max_distance: OrderedFloat::from(max_distance),
-                clusters: component.iter().map(|n| g[*n]).collect(),
+                centroid_distance,
+                max_distance,
+                clusters: component.iter().map(|n| clusters[g[*n]].clone()).collect(),
             };
             hotspots.push(hs);
         }
     }
 
-    for hs in hotspots.iter() {
-        let num_atoms: usize = hs.clusters.iter().map(|c| c.atoms.len()).sum();
-        writeln!(writer, "{}", num_atoms)?;
-        writeln!(
-            writer,
-            "hotspot Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
-            hs.class,
-            hs.strength_total,
-            hs.strength_0,
-            hs.strength_1.unwrap_or(0),
-            hs.strength_z.unwrap_or(0),
-            hs.centroid_distance,
-            hs.max_distance,
-            hs.clusters.len(),
-        )?;
-        for c in hs.clusters.iter() {
-            for a in c.atoms.iter() {
-                writeln!(writer, "X {:.3} {:.3} {:.3}", a[0].0, a[1].0, a[2].0)?;
-            }
-        }
-    }
-    Ok(())
+    hotspots
 }
