@@ -9,8 +9,10 @@ use kiddo::SquaredEuclidean;
 use ordered_float::OrderedFloat;
 use petgraph::algo::kosaraju_scc;
 use petgraph::{Graph, Undirected};
+use petgraph::graph::NodeIndex;
 use std::collections::HashMap;
-use std::io::prelude::*;
+use itertools::Itertools;
+
 
 type Atom = [OrderedFloat<f32>; 3];
 
@@ -19,6 +21,7 @@ struct Cluster {
     title: String,
     strength: u32,
     atoms: Vec<Atom>,
+    lines: Vec<String>
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -35,7 +38,9 @@ enum HotspotClass {
 struct Hotspot<'a> {
     class: HotspotClass,
     strength_total: u32,
-    strength_main: u32,
+    strength_0: u32,
+    strength_1: Option<u32>,
+    strength_z: Option<u32>,
     max_distance: OrderedFloat<f32>,
     centroid_distance: OrderedFloat<f32>,
     clusters: Vec<&'a Cluster>,
@@ -67,34 +72,34 @@ fn calc_distance(a: &Atom, b: &Atom) -> f32 {
 }
 
 fn determine_class(
-    strength_main: u32,
+    strength_0: u32,
     centroid_distance: f32,
     max_distance: f32,
 ) -> Option<HotspotClass> {
     let class: Option<HotspotClass>;
 
-    if strength_main >= 16 && centroid_distance < 8.0 && max_distance >= 10.0 {
+    if strength_0 >= 16 && centroid_distance < 8.0 && max_distance >= 10.0 {
         class = Some(HotspotClass::D);
-    } else if strength_main >= 16
+    } else if strength_0 >= 16
         && centroid_distance < 8.0
         && 7.0 <= max_distance
         && max_distance < 10.0
     {
         class = Some(HotspotClass::DS);
-    } else if strength_main >= 16 && centroid_distance >= 8.0 && max_distance >= 10.0 {
+    } else if strength_0 >= 16 && centroid_distance >= 8.0 && max_distance >= 10.0 {
         class = Some(HotspotClass::DL);
-    } else if (strength_main >= 13 && strength_main < 16)
+    } else if (strength_0 >= 13 && strength_0 < 16)
         && centroid_distance < 8.0
         && max_distance >= 10.0
     {
         class = Some(HotspotClass::B);
-    } else if (strength_main >= 13 && strength_main < 16)
+    } else if (strength_0 >= 13 && strength_0 < 16)
         && centroid_distance < 8.0
         && 7.0 <= max_distance
         && max_distance < 10.0
     {
         class = Some(HotspotClass::BS);
-    } else if (strength_main >= 13 && strength_main < 16)
+    } else if (strength_0 >= 13 && strength_0 < 16)
         && centroid_distance >= 8.0
         && max_distance >= 10.0
     {
@@ -107,20 +112,19 @@ fn determine_class(
 
 pub fn find_hotspots(
     pdb_str: String,
-    writer: &mut dyn Write,
+    writer: &mut dyn std::io::Write,
     clash_threshold: f32,
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
+    deep_search: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    //
-    // Algumas variáveis importantes.
-    //
-    let mut prot: Vec<Atom> = Vec::new();
-    let mut clusters: Vec<Cluster> = Vec::new();
-
     //
     // Lê arquivo PDB.
     //
+    let mut prot: Vec<Atom> = Vec::new();
+    let mut prot_lines: Vec<String> = Vec::new();
+    let mut clusters: Vec<Cluster> = Vec::new();
+
     for line in pdb_str.lines() {
         let is_atom: bool = line.starts_with("ATOM ");
         let is_het: bool = !is_atom && line.starts_with("HETATM");
@@ -137,6 +141,7 @@ pub fn find_hotspots(
                     title: String::from(title),
                     strength,
                     atoms: Vec::new(),
+                    lines: Vec::new(),
                 };
                 clusters.push(c);
             }
@@ -152,9 +157,11 @@ pub fn find_hotspots(
             ];
             if is_atom {
                 prot.push(atom);
+                prot_lines.push(String::from(line));
             }
             if is_het && let Some(cluster) = clusters.last_mut() {
                 cluster.atoms.push(atom);
+                cluster.lines.push(String::from(line));
             }
         }
     }
@@ -227,10 +234,27 @@ pub fn find_hotspots(
     }
 
     //
-    // Hotspots são componentes conectados que agrupam clusters.
+    // Hotspots são (sub)componentes conectados que agrupam clusters.
     //
+    
+    let mut lets_try: Vec<Vec<NodeIndex>> = kosaraju_scc(&g);
+    let component_vec = lets_try.iter().cloned().collect::<Vec<_>>();
+    for component in  component_vec.into_iter() {
+        let i = if deep_search {
+            1
+        } else {
+            component.len()
+        };
+        for k in i..component.len()+1 {
+            for subcomponent in component.iter().combinations(k) {
+                let v = subcomponent.iter().map(|&&n| n).collect();
+                lets_try.push(v);
+            }
+        }
+    }
+
     let mut hotspots: Vec<Hotspot> = Vec::new();
-    for component in kosaraju_scc(&g) {
+    for component in lets_try.into_iter() {
         let mut max_distance = 0f32;
         let mut centroid_distance = 0f32;
 
@@ -240,7 +264,8 @@ pub fn find_hotspots(
         let n0 = component
             .iter()
             .max_by(|&n1, &n2| g[*n1].strength.cmp(&g[*n2].strength))
-            .unwrap();
+            .expect("Any component must have at least one node");
+
         for n in component.iter() {
             if n0 != n
                 && let Some(e) = g.find_edge(*n0, *n)
@@ -272,13 +297,23 @@ pub fn find_hotspots(
         //
         // Determina a classe do hotspot, se houver.
         //
-        let strength_main = g[*n0].strength;
-        let class = determine_class(strength_main, centroid_distance, max_distance);
+        let mut table: Vec<u32> = component
+                .iter()
+                .map(|&n| g[n].strength)
+                .sorted()
+                .collect();
+        let strength_0 = table.pop().unwrap();
+        let strength_1 = table.pop();
+        let strength_z = table.first().copied();
+        
+        let class = determine_class(strength_0, centroid_distance, max_distance);
         if let Some(class) = class {
             let hs = Hotspot {
                 class,
                 strength_total: component.iter().map(|n| g[*n].strength).sum(),
-                strength_main,
+                strength_0,
+                strength_1,
+                strength_z,
                 centroid_distance: OrderedFloat::from(centroid_distance),
                 max_distance: OrderedFloat::from(max_distance),
                 clusters: component.iter().map(|n| g[*n]).collect(),
@@ -292,12 +327,19 @@ pub fn find_hotspots(
         writeln!(writer, "{}", num_atoms)?;
         writeln!(
             writer,
-            "hotspot_CLASS={:?}_ST={}_S0={}_CD={}_MD={}",
-            hs.class, hs.strength_total, hs.strength_main, hs.centroid_distance, hs.max_distance
+            "hotspot Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            hs.class,
+            hs.strength_total,
+            hs.strength_0,
+            hs.strength_1.unwrap_or(0),
+            hs.strength_z.unwrap_or(0),
+            hs.centroid_distance,
+            hs.max_distance,
+            hs.clusters.len(),
         )?;
         for c in hs.clusters.iter() {
             for a in c.atoms.iter() {
-                writeln!(writer, "X {} {} {}", a[0].0, a[1].0, a[2].0)?;
+                writeln!(writer, "X {:.3} {:.3} {:.3}", a[0].0, a[1].0, a[2].0)?;
             }
         }
     }

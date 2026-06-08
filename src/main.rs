@@ -16,7 +16,7 @@ use std::io::{self, Read};
 )]
 struct Cli {
     /// Input PDB file path or use '-' to read from stdin
-    #[arg(short, long, default_value = "-")]
+    #[arg(short, long)]
     input: String,
 
     /// Output XYZ file path or use '-' to write to stdout
@@ -24,7 +24,7 @@ struct Cli {
     output: String,
 
     /// Steric clash index threshold
-    #[arg(short, long, default_value_t = 0.5)]
+    #[arg(short, long, default_value_t = 0.1)]
     clash_threshold: f32,
 
     /// Number of pseudo-atoms to detect clashes between two atoms
@@ -34,13 +34,17 @@ struct Cli {
     /// Radius of each pseudo-atom
     #[arg(short, long, default_value_t = 0.5)]
     pseudoatom_radius: f32,
+
+    /// Use deep search
+    #[arg(short, long, default_value_t = false)]
+    deep_search: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
     //
-    // Extrái conteúdo da entrada.s
+    // Extrai conteúdo da entrada.
     //
     let mut input_file: Box<dyn Read> = if args.input == "-" {
         Box::new(io::stdin())
@@ -73,6 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.clash_threshold,
         args.num_pseudoatoms,
         args.pseudoatom_radius,
+        args.deep_search,
     )?;
     Ok(())
 }
