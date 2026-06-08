@@ -71,20 +71,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     };
 
-    let hotspots = xdrugpy_hotspot_finder::find_hotspots(
+    let (hotspots, clusters) = xdrugpy_hotspot_finder::find_hotspots(
         pdb_str,
         args.clash_threshold,
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
     );
-
-    for hs in hotspots.iter() {
+    for (idx, c) in clusters.iter().enumerate() {
+        writeln!(writer, "{}", c.atoms.len())?;
+        writeln!(writer, "cluster+Id_{}+S_{}", idx, c.strength)?;
+        for a in c.atoms.iter() {
+            writeln!(writer, "X {:.3} {:.3} {:.3}", a[0].0, a[1].0, a[2].0)?;
+        }
+    }
+    for (idx, hs) in hotspots.iter().enumerate() {
         let num_atoms: usize = hs.clusters.iter().map(|c| c.atoms.len()).sum();
         writeln!(writer, "{}", num_atoms)?;
         writeln!(
             writer,
-            "hotspot+Class_{:?}+ST_{}+S0_{}+S1_{}+SZ_{}+CD_{:.3}+MD_{:.3}+Len={}",
+            "hotspot+Id_{}+Class_{:?}+ST_{}+S0_{}+S1_{}+SZ_{}+CD_{:.3}+MD_{:.3}+Len={}",
+            idx,
             hs.class,
             hs.strength_total,
             hs.strength_0,

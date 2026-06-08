@@ -117,7 +117,7 @@ pub fn find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-) -> Vec<Hotspot> {
+) -> (Vec<Hotspot>, Vec<Cluster>) {
     //
     // Lê arquivo PDB.
     //
@@ -339,5 +339,5 @@ pub fn find_hotspots(
         }
     }
 
-    hotspots
+    (hotspots, clusters)
 }
