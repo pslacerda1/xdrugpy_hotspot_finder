@@ -71,27 +71,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     };
 
-    let (hotspots, clusters) = xdrugpy_hotspot_finder::find_hotspots(
+    let (protein_pdb, hotspots, clusters) = xdrugpy_hotspot_finder::find_hotspots(
         pdb_str,
         args.clash_threshold,
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
     );
-    for (idx, c) in clusters.iter().enumerate() {
-        writeln!(writer, "{}", c.atoms.len())?;
-        writeln!(writer, "cluster+Id_{}+S_{}", idx, c.strength)?;
-        for a in c.atoms.iter() {
-            writeln!(writer, "X {:.3} {:.3} {:.3}", a[0].0, a[1].0, a[2].0)?;
-        }
+    
+    // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
+    for (c_idx, c) in clusters.iter().enumerate() {
+        writeln!(writer, "REMARK Object=cluster={} S={}", c_idx + 1, c.strength)?;
     }
-    for (idx, hs) in hotspots.iter().enumerate() {
-        let num_atoms: usize = hs.clusters.iter().map(|c| c.atoms.len()).sum();
-        writeln!(writer, "{}", num_atoms)?;
+    for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(
             writer,
-            "hotspot+Id_{}+Class_{:?}+ST_{}+S0_{}+S1_{}+SZ_{}+CD_{:.3}+MD_{:.3}+Len={}",
-            idx,
+            "REMARK Object=hotspot_{} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            hs_idx + 1,
             hs.class,
             hs.strength_total,
             hs.strength_0,
@@ -101,9 +97,40 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             hs.max_distance,
             hs.clusters.len(),
         )?;
+    }
+
+    // Copia proteína integralmente do arquivo de entrada.
+    writeln!(writer, "HEADER prot")?;
+    for prot_line in protein_pdb {
+        writeln!(writer, "{}", prot_line)?;
+    }
+
+    
+    // Clusters têm cadeia Z
+    let mut a_idx = 0usize;
+    for (c_idx, c) in clusters.iter().enumerate() {
+        writeln!(writer, "HEADER cluster_{}", c_idx + 1)?;
+        for a in c.atoms.iter() {
+            a_idx += 1;
+            writeln!(
+                writer,
+                "HETATM{:>5}  X   XDP Z   1    {:8.3}{:8.3}{:8.3}  1.00  0.00           X",
+                a_idx, a[0].0, a[1].0, a[2].0
+            )?;
+        }
+    }
+
+    // Hotspots têm cadeia Y
+    for (hs_idx, hs) in hotspots.iter().enumerate() {
+        writeln!(writer, "HEADER hotspot_{}", hs_idx + 1)?;
         for c in hs.clusters.iter() {
             for a in c.atoms.iter() {
-                writeln!(writer, "X {:.3} {:.3} {:.3}", a[0].0, a[1].0, a[2].0)?;
+                a_idx += 1;
+                writeln!(
+                    writer,
+                    "HETATM{:>5}  X   XDP Y   1    {:8.3}{:8.3}{:8.3}  1.00  0.00           X",
+                    a_idx, a[0].0, a[1].0, a[2].0
+                )?;
             }
         }
     }
