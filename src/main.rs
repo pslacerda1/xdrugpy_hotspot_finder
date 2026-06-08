@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
     for (c_idx, c) in clusters.iter().enumerate() {
-        writeln!(writer, "REMARK Object=cluster={} S={}", c_idx + 1, c.strength)?;
+        writeln!(writer, "REMARK Object=cluster_{} S={}", c_idx + 1, c.strength)?;
     }
     for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(
