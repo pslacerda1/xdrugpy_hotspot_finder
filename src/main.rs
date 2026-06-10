@@ -3,7 +3,8 @@ extern crate clap;
 use clap::Parser;
 use std::fs::File;
 use std::io::{self, Write, Read};
-use anyhow::{Context, Error, Ok, Result};
+use anyhow::{self, Context, Error, Ok, Result};
+
 
 /// FTMap hotspot detector
 #[derive(clap::Parser)]
@@ -71,14 +72,16 @@ fn main() -> Result<(), Error> {
         )
     };
 
-    xdrugpy_hotspot_finder::find_hotspots(
+    let (clusters, hotspots) = xdrugpy_hotspot_finder::find_hotspots(
         pdb_str,
-        &mut writer,
         args.clash_threshold,
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
     )?;
+
+    xdrugpy_hotspot_finder::write_pdbstr(&mut writer, clusters, hotspots)?;
+    
 
     Ok(())
 }
