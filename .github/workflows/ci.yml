@@ -79,9 +79,7 @@ jobs:
         run: cargo build --release --locked
 
       - name: Build Wheels
-        run: |
-          uv pip install maturin
-          maturin build --release --interpreter python${{ matrix.python-version }}
+        run: maturin build --release --interpreter python${{ matrix.python-version }}
 
       - name: Release Assets to GitHub
         uses: softprops/action-gh-release@v2
