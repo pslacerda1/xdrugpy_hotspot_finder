@@ -1,0 +1,94 @@
+name: build-test-release
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  RUST_BACKTRACE: full
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+
+jobs:
+  fmt-clippy:
+    name: Format & Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run Linter
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  build-and-release:
+    name: Release for ${{ matrix.os.name }} (Python ${{ matrix.python-version }})
+    needs: fmt-clippy
+    
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        program: ["xdrugpy_hotspot_finder"]
+        os: [
+          {name: "ubuntu", exe: ""},
+          {name: "windows", exe: ".exe"},
+          {name: "macos", exe: ""}
+        ]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    runs-on: "${{ matrix.os.name }}-latest"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Enable Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os.name }}-release
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+
+      - name: Run Tests   # oh no!
+        run: cargo test --verbose
+      
+      - name: Build Release Binary
+        run: cargo build --release --locked
+
+      - name: Build Wheels
+        run: |
+          maturin build --release --interpreter python${{ matrix.python-version }}
+
+      - name: Release Assets to GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "build.${{ github.run_number }}"
+          name: "Continuous Release #${{ github.run_number }}"
+          body: |
+            Automated build from successful CI run.
+            Commit: ${{ github.sha }}
+          draft: true
+          prerelease: true
+          files: |
+            target/release/${{ matrix.program }}${{ matrix.os.exe }}
+            target/wheels/*.whl
