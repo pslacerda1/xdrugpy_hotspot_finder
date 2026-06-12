@@ -1,7 +1,7 @@
 extern crate clap;
 
 use anyhow::{self, Context, Error, Ok, Result};
-use clap::Parser;
+use clap::{Parser};
 use std::fs::File;
 use std::io::{self, Read, Write};
 
@@ -9,7 +9,7 @@ use std::io::{self, Read, Write};
 #[derive(clap::Parser)]
 #[command(
     name = "xdrugpy_hotspot_finder",
-    version = "1.0",
+    version = env!("__VERSION__"),
     author = "Pedro Sousa Lacerda <pslacerda@gmail.com>",
     about = "Detect hotspots on FTMap/FTMove data.",
     long_about = "This tool process PDB files from FTMap/FTMove/Atlas looking for Kozakov et al. (2015) hotspots."

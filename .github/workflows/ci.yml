@@ -52,9 +52,19 @@ jobs:
     runs-on: "${{ matrix.os.name }}-latest"
 
     steps:
-      - name: Checkout code
+      #
+      # Preliminares
+      #
+      - name: Checkout Code
         uses: actions/checkout@v4
+      
+      - name: Inject Version
+        shell: shell
+        run: sed -i s/__VERSION__/v.${{ github.run_number }}-${{ github.sha }}/
 
+      #
+      # Preparação do ambiene
+      #
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -72,19 +82,28 @@ jobs:
       - name: Install Maturin
         run: pip install maturin
         
-      - name: Run Tests   # oh no!
+        #
+        # Oh no!
+        # 
+      - name: Run Tests
         run: cargo test --verbose
-      
+          
+      #
+      # Compila tudo...
+      #
       - name: Build Release Binary
         run: cargo build --release --locked
 
       - name: Build Wheels
         run: maturin build --release --interpreter python${{ matrix.python-version }}
-
+      
+      #
+      # Lançamento e versionamento
+      #
       - name: Release Assets to GitHub
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "build.${{ github.run_number }}"
+          tag_name: "v.${{ github.run_number }}-${{ github.sha }}"
           name: "Continuous Release #${{ github.run_number }}"
           body: |
             Automated build from successful CI run.

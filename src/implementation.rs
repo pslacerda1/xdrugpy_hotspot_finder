@@ -180,6 +180,7 @@ pub fn write_pdbstr(
     clusters: Vec<Cluster>,
     hotspots: Vec<Hotspot>,
 ) -> Result<(), Error> {
+    writeln!(writer, "REMARK **** XDrugPy {} ****", env!("__VERSION__"))?;
     // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
     for (c_idx, c) in clusters.iter().enumerate() {
         writeln!(writer, "REMARK Object=cluster_{} S={}", c_idx, c.strength)?;

@@ -7,6 +7,7 @@ use pyo3::prelude::{Bound, PyModule, PyModuleMethods, PyResult, pymodule, wrap_p
 #[pymodule]
 #[pyo3(name = "xdrugpy_hotspot_finder")]
 pub fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", "__VERSION__")?;
     m.add_class::<python::PyHotspotClass>()?;
     m.add_class::<python::PyCluster>()?;
     m.add_class::<python::PyHotspot>()?;
