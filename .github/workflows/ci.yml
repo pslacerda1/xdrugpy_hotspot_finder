@@ -68,7 +68,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: x64
-
+        
+      - name: Install Maturin
+        run: pip install maturin
+        
       - name: Run Tests   # oh no!
         run: cargo test --verbose
       
@@ -77,6 +80,7 @@ jobs:
 
       - name: Build Wheels
         run: |
+          uv pip install maturin
           maturin build --release --interpreter python${{ matrix.python-version }}
 
       - name: Release Assets to GitHub
