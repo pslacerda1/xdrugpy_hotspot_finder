@@ -55,7 +55,6 @@ impl Cluster {
             buffer += pdb_line.as_str();
             buffer += "\n";
         }
-        buffer.pop(); // remove o último '\n'
         buffer
     }
 }
