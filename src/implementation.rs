@@ -184,7 +184,6 @@ impl Hotspot {
 }
 
 
-
 pub fn write_pdbstr(
     writer: &mut dyn Write,
     clusters: Vec::<Cluster>,
@@ -246,7 +245,7 @@ pub fn find_hotspots(
                 // Extrai força.
                 let strength: u32 = title[title.len() - 3..title.len()]
                     .parse()
-                    .expect("Can't parse the strength from title");
+                    .with_context(|| "Can't parse the strength from title")?;
                 let c = Cluster {
                     title: String::from(title),
                     strength,
@@ -261,9 +260,9 @@ pub fn find_hotspots(
                 continue;
             }
             let atom = [
-                OrderedFloat::from(line[31..38].trim().parse::<f32>().expect("Bad PDB file")),
-                OrderedFloat::from(line[39..46].trim().parse::<f32>().expect("Bad PDB file")),
-                OrderedFloat::from(line[47..54].trim().parse::<f32>().expect("Bad PDB file")),
+                OrderedFloat::from(line[31..38].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
+                OrderedFloat::from(line[39..46].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
+                OrderedFloat::from(line[47..54].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
             ];
             if is_atom {
                 prot.push(atom);
