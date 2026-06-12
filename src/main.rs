@@ -1,7 +1,7 @@
 extern crate clap;
 
 use anyhow::{self, Context, Error, Ok, Result};
-use clap::{Parser};
+use clap::Parser;
 use std::fs::File;
 use std::io::{self, Read, Write};
 
