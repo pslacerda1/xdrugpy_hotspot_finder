@@ -1,10 +1,9 @@
 extern crate clap;
 
+use anyhow::{self, Context, Error, Ok, Result};
 use clap::Parser;
 use std::fs::File;
-use std::io::{self, Write, Read};
-use anyhow::{self, Context, Error, Ok, Result};
-
+use std::io::{self, Read, Write};
 
 /// FTMap hotspot detector
 #[derive(clap::Parser)]
@@ -50,8 +49,8 @@ fn main() -> Result<(), Error> {
     let mut input_file: Box<dyn Read> = if args.input == "-" {
         Box::new(io::stdin())
     } else {
-        let file = File::open(&args.input)
-            .with_context(|| format!("Can't open file '{}'", args.input))?;
+        let file =
+            File::open(&args.input).with_context(|| format!("Can't open file '{}'", args.input))?;
         Box::new(file)
     };
 
@@ -81,7 +80,6 @@ fn main() -> Result<(), Error> {
     )?;
 
     xdrugpy_hotspot_finder::write_pdbstr(&mut writer, clusters, hotspots)?;
-    
 
     Ok(())
 }

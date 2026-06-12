@@ -4,6 +4,8 @@ extern crate kiddo;
 extern crate ordered_float;
 extern crate petgraph;
 
+use anyhow::{Context, Error, Result};
+use derive_more::Debug;
 use itertools::Itertools;
 use kiddo::ImmutableKdTree;
 use kiddo::SquaredEuclidean;
@@ -12,19 +14,15 @@ use petgraph::algo::kosaraju_scc;
 use petgraph::graph::NodeIndex;
 use petgraph::{Graph, Undirected};
 use std::collections::HashMap;
-use std::io::{Write};
-use anyhow::{Context, Error, Result};
-use derive_more::Debug;
-
+use std::io::Write;
 
 pub type Atom = [OrderedFloat<f32>; 3];
-
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Cluster {
     pub title: String,
     pub strength: u32,
-    
+
     #[debug(skip)]
     atoms: Vec<Atom>,
 
@@ -33,23 +31,19 @@ pub struct Cluster {
 }
 
 impl Cluster {
-
     pub fn get_title(&self) -> String {
         self.title.clone()
     }
-    
+
     pub fn get_strength(&self) -> u32 {
         self.strength
     }
-    
+
     pub fn get_pdbstr(&self, atom_offset: usize) -> String {
         let mut buffer = String::new();
         for (a_idx, pdb_line) in self.pdb_buffer.lines().enumerate() {
             let mut pdb_line = String::from(pdb_line);
-            pdb_line.replace_range(
-                6..11,
-                format!("{:>5}", a_idx + atom_offset).as_str()
-            );
+            pdb_line.replace_range(6..11, format!("{:>5}", a_idx + atom_offset).as_str());
             pdb_line.replace_range(11..16, "    X");
             pdb_line.replace_range(16..20, " XDP");
             buffer += pdb_line.as_str();
@@ -58,7 +52,6 @@ impl Cluster {
         buffer
     }
 }
-
 
 fn calc_centroid(atoms: &[Atom]) -> Atom {
     let n = atoms.len() as f32;
@@ -168,7 +161,7 @@ impl Hotspot {
     pub fn get_centroid_distance(&self) -> Option<f32> {
         self.centroid_distance
     }
-    
+
     pub fn get_pdbstr(&self) -> String {
         let mut buffer = String::new();
         let mut atom_offset = 0usize;
@@ -182,12 +175,11 @@ impl Hotspot {
     }
 }
 
-
 pub fn write_pdbstr(
     writer: &mut dyn Write,
-    clusters: Vec::<Cluster>,
-    hotspots: Vec::<Hotspot>,
-) -> Result<(), Error>{
+    clusters: Vec<Cluster>,
+    hotspots: Vec<Hotspot>,
+) -> Result<(), Error> {
     // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
     for (c_idx, c) in clusters.iter().enumerate() {
         writeln!(writer, "REMARK Object=cluster_{} S={}", c_idx, c.strength)?;
@@ -259,9 +251,24 @@ pub fn find_hotspots(
                 continue;
             }
             let atom = [
-                OrderedFloat::from(line[31..38].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
-                OrderedFloat::from(line[39..46].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
-                OrderedFloat::from(line[47..54].trim().parse::<f32>().with_context(|| "Bad PDB file")?),
+                OrderedFloat::from(
+                    line[31..38]
+                        .trim()
+                        .parse::<f32>()
+                        .with_context(|| "Bad PDB file")?,
+                ),
+                OrderedFloat::from(
+                    line[39..46]
+                        .trim()
+                        .parse::<f32>()
+                        .with_context(|| "Bad PDB file")?,
+                ),
+                OrderedFloat::from(
+                    line[47..54]
+                        .trim()
+                        .parse::<f32>()
+                        .with_context(|| "Bad PDB file")?,
+                ),
             ];
             if is_atom {
                 prot.push(atom);
@@ -277,7 +284,7 @@ pub fn find_hotspots(
     for c in clusters.iter_mut() {
         c.pdb_buffer.pop();
     }
-    
+
     //
     // Computa variáveis a nível de pares de clusters.
     //
@@ -374,7 +381,7 @@ pub fn find_hotspots(
             .iter()
             .max_by(|&&n1, &&n2| g[n1].strength.cmp(&g[n2].strength))
             .with_context(|| "All components must have at least one node")?;
-        
+
         let max_centroid_distance: f32 = subset
             .iter()
             .map(|&n| {
@@ -387,9 +394,7 @@ pub fn find_hotspots(
                     0f32
                 }
             })
-            .max_by(|a, b| {
-                OrderedFloat::from(*a).cmp(&OrderedFloat::from(*b))
-            })
+            .max_by(|a, b| OrderedFloat::from(*a).cmp(&OrderedFloat::from(*b)))
             .with_context(|| "All components must have at least one cluster")?;
         let centroid_distance = if max_centroid_distance == 0f32 {
             None
@@ -418,11 +423,7 @@ pub fn find_hotspots(
         //
         // Determina a classe do hotspot, se houver.
         //
-        let mut table: Vec<u32> = subset
-            .iter()
-            .map(|&n| g[n].strength)
-            .sorted()
-            .collect();
+        let mut table: Vec<u32> = subset.iter().map(|&n| g[n].strength).sorted().collect();
 
         let strength_0 = table.pop().unwrap();
         let strength_1 = table.pop();
