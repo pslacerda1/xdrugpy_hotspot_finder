@@ -5,6 +5,7 @@ on:
 
 env:
   RUST_BACKTRACE: full
+  __VERSION__: "v.${{ github.run_number }}-${{ github.sha }}"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -53,18 +54,11 @@ jobs:
 
     steps:
       #
-      # Preliminares
+      # Preparação do ambiene
       #
       - name: Checkout Code
         uses: actions/checkout@v4
-      
-      - name: Inject Version
-        shell: shell
-        run: sed -i s/__VERSION__/v.${{ github.run_number }}-${{ github.sha }}/
 
-      #
-      # Preparação do ambiene
-      #
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
@@ -82,9 +76,9 @@ jobs:
       - name: Install Maturin
         run: pip install maturin
         
-        #
-        # Oh no!
-        # 
+      #
+      # Oh no!
+      # 
       - name: Run Tests
         run: cargo test --verbose
           
