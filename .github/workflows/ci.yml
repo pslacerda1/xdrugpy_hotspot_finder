@@ -94,6 +94,13 @@ jobs:
       #
       # Lançamento e versionamento
       #
+      - name: Rename executable
+        shell: bash
+        run: >
+          mv
+          target/release/${{ matrix.program }}${{ matrix.os.exe }}
+          target/release/${{ matrix.program }}-${{matrix.os.name }}${{ matrix.os.exe }}
+
       - name: Release Assets to GitHub
         uses: softprops/action-gh-release@v2
         with:
