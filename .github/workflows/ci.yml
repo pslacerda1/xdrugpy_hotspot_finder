@@ -107,7 +107,7 @@ jobs:
           tag_name: ${{ env.__VERSION__ }}
           name: "Release ${{ env.__VERSION__ }}"
           body: |
-            Automated build from successful a CI run.
+            Automated build from a successful CI run.
             Version: ${{ env.__VERSION__ }}
             Commit: ${{ github.sha }}
           draft: true
