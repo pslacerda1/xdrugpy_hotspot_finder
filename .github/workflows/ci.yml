@@ -5,7 +5,7 @@ on:
 
 env:
   RUST_BACKTRACE: full
-  __VERSION__: "v.${{ github.run_number }}-${{ github.sha }}"
+  __VERSION__: "v.${{ github.run_number }}"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -49,7 +49,7 @@ jobs:
           {name: "windows", exe: ".exe"},
           {name: "macos", exe: ""}
         ]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     runs-on: "${{ matrix.os.name }}-latest"
 
     steps:
@@ -94,23 +94,37 @@ jobs:
       #
       # Lançamento e versionamento
       #
-      - name: Rename executable
+      - name: Rename Executables
         shell: bash
         run: >
           mv
           target/release/${{ matrix.program }}${{ matrix.os.exe }}
           target/release/${{ matrix.program }}-${{matrix.os.name }}${{ matrix.os.exe }}
 
-      - name: Release Assets to GitHub
+      - name: Release Executable Assets
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v.${{ github.run_number }}-${{ github.sha }}"
-          name: "Continuous Release #${{ github.run_number }}"
+          tag_name: ${{ env.__VERSION__ }}
+          name: "Executable Releases ${{ env.__VERSION__ }}"
           body: |
-            Automated build from successful CI run.
+            Automated build from successful a CI run.
+            Version: ${{ env.__VERSION__ }}
             Commit: ${{ github.sha }}
           draft: true
           prerelease: true
           files: |
-            target/release/${{ matrix.program }}${{ matrix.os.exe }}
+            target/release/${{ matrix.program }}-${{ matrix.os.name }}${{ matrix.os.exe }}
+
+      - name: Release Wheels Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.__VERSION__ }}
+          name: "Wheels Releases ${{ env.__VERSION__ }}"
+          body: |
+            Automated build from successful a CI run.
+            Version: ${{ env.__VERSION__ }}
+            Commit: ${{ github.sha }}
+          draft: true
+          prerelease: true
+          files: |
             target/wheels/*.whl
