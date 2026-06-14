@@ -105,7 +105,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.__VERSION__ }}
-          name: "Executable Releases ${{ env.__VERSION__ }}"
+          name: "Release ${{ env.__VERSION__ }}"
           body: |
             Automated build from successful a CI run.
             Version: ${{ env.__VERSION__ }}
