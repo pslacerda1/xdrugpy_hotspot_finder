@@ -114,17 +114,4 @@ jobs:
           prerelease: true
           files: |
             target/release/${{ matrix.program }}-${{ matrix.os.name }}${{ matrix.os.exe }}
-
-      - name: Release Wheels Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.__VERSION__ }}
-          name: "Wheels Releases ${{ env.__VERSION__ }}"
-          body: |
-            Automated build from successful a CI run.
-            Version: ${{ env.__VERSION__ }}
-            Commit: ${{ github.sha }}
-          draft: true
-          prerelease: true
-          files: |
             target/wheels/*.whl
