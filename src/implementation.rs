@@ -176,6 +176,7 @@ impl Hotspot {
 }
 
 pub fn write_pdbstr(
+    group: &str,
     writer: &mut dyn Write,
     clusters: Vec<Cluster>,
     hotspots: Vec<Hotspot>,
@@ -183,12 +184,14 @@ pub fn write_pdbstr(
     writeln!(writer, "REMARK **** XDrugPy {} ****", env!("__VERSION__"))?;
     // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
     for (c_idx, c) in clusters.iter().enumerate() {
-        writeln!(writer, "REMARK Object=cluster_{} S={}", c_idx, c.strength)?;
+        writeln!(writer, "REMARK Object={}.CS.{} S={}", group, c_idx, c.strength)?;
     }
     for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(
             writer,
-            "REMARK Object=hotspot_{} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            "REMARK Object={}.{:?}.{} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            group,
+            hs.class,
             hs_idx,
             hs.class,
             hs.strength_total,
@@ -202,11 +205,11 @@ pub fn write_pdbstr(
     }
     // Exporta os clusters e hotspots efetivamente.
     for (c_idx, c) in clusters.into_iter().enumerate() {
-        writeln!(writer, "HEADER cluster_{}", c_idx)?;
+        writeln!(writer, "HEADER {}.CS.{}", group, c_idx)?;
         write!(writer, "{}", c.get_pdbstr(0))?;
     }
     for (hs_idx, hs) in hotspots.into_iter().enumerate() {
-        writeln!(writer, "HEADER hotspot_{}", hs_idx)?;
+        writeln!(writer, "HEADER {}.{:?}.{}", group, hs.class, hs_idx,)?;
         write!(writer, "{}", hs.get_pdbstr())?;
     }
     Ok(())

@@ -19,6 +19,10 @@ struct Cli {
     #[arg(short, long)]
     input: String,
 
+    /// Group name for objects
+    #[arg(short, long)]
+    group: String,
+
     /// Output XYZ file path or use '-' to write to stdout
     #[arg(short, long, default_value = "-")]
     output: String,
@@ -79,7 +83,7 @@ fn main() -> Result<(), Error> {
         args.deep_search,
     )?;
 
-    xdrugpy_hotspot_finder::write_pdbstr(&mut writer, clusters, hotspots)?;
+    xdrugpy_hotspot_finder::write_pdbstr(&args.group, &mut writer, clusters, hotspots)?;
 
     Ok(())
 }

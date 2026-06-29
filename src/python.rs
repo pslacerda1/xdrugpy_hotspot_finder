@@ -149,6 +149,7 @@ pub fn py_find_hotspots(
 #[pyfunction]
 #[pyo3(name = "write_pdbstr")]
 pub fn py_write_pdbstr(
+    group: &str,
     path: String,
     clusters: Vec<PyRef<PyCluster>>,
     hotspots: Vec<PyRef<PyHotspot>>,
@@ -159,7 +160,7 @@ pub fn py_write_pdbstr(
     let raw_clusters: Vec<Cluster> = clusters.iter().map(|c| c.0.clone()).collect();
     let raw_hotspots: Vec<Hotspot> = hotspots.iter().map(|h| h.0.clone()).collect();
 
-    write_pdbstr(&mut file, raw_clusters, raw_hotspots)
+    write_pdbstr(group, &mut file, raw_clusters, raw_hotspots)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }
