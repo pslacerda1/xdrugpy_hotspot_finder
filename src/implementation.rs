@@ -184,7 +184,11 @@ pub fn write_pdbstr(
     writeln!(writer, "REMARK **** XDrugPy {} ****", env!("__VERSION__"))?;
     // Salva propriedades de clusters e hotspots no cabeçalho do arquivo.
     for (c_idx, c) in clusters.iter().enumerate() {
-        writeln!(writer, "REMARK Object={}.CS.{} S={}", group, c_idx, c.strength)?;
+        writeln!(
+            writer,
+            "REMARK Object={}.CS.{} S={}",
+            group, c_idx, c.strength
+        )?;
     }
     for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(
