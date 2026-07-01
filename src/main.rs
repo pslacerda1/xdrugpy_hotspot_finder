@@ -75,7 +75,7 @@ fn main() -> Result<(), Error> {
         )
     };
 
-    let (clusters, hotspots) = xdrugpy_hotspot_finder::find_hotspots(
+    let (protein_lines, clusters, hotspots) = xdrugpy_hotspot_finder::find_hotspots(
         pdb_str,
         args.clash_threshold,
         args.num_pseudoatoms,
@@ -83,7 +83,13 @@ fn main() -> Result<(), Error> {
         args.deep_search,
     )?;
 
-    xdrugpy_hotspot_finder::write_pdbstr(&args.group, &mut writer, clusters, hotspots)?;
+    xdrugpy_hotspot_finder::write_pdbstr(
+        &args.group,
+        &mut writer,
+        protein_lines,
+        clusters,
+        hotspots,
+    )?;
 
     Ok(())
 }

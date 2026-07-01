@@ -131,8 +131,8 @@ pub fn py_find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-) -> PyResult<(Vec<PyCluster>, Vec<PyHotspot>)> {
-    let (clusters, hotspots) = find_hotspots(
+) -> PyResult<(Vec<String>, Vec<PyCluster>, Vec<PyHotspot>)> {
+    let (protein_lines, clusters, hotspots) = find_hotspots(
         pdb_str,
         clash_threshold,
         num_pseudoatoms,
@@ -143,7 +143,7 @@ pub fn py_find_hotspots(
 
     let py_clusters = clusters.iter().map(|c| PyCluster(c.clone())).collect();
     let py_hotspots = hotspots.iter().map(|h| PyHotspot(h.clone())).collect();
-    Ok((py_clusters, py_hotspots))
+    Ok((protein_lines, py_clusters, py_hotspots))
 }
 
 #[pyfunction]
@@ -151,6 +151,7 @@ pub fn py_find_hotspots(
 pub fn py_write_pdbstr(
     group: &str,
     path: String,
+    protein_lines: Vec<String>,
     clusters: Vec<PyRef<PyCluster>>,
     hotspots: Vec<PyRef<PyHotspot>>,
 ) -> PyResult<()> {
@@ -160,7 +161,7 @@ pub fn py_write_pdbstr(
     let raw_clusters: Vec<Cluster> = clusters.iter().map(|c| c.0.clone()).collect();
     let raw_hotspots: Vec<Hotspot> = hotspots.iter().map(|h| h.0.clone()).collect();
 
-    write_pdbstr(group, &mut file, raw_clusters, raw_hotspots)
+    write_pdbstr(group, &mut file, protein_lines, raw_clusters, raw_hotspots)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(())
 }

@@ -26,3 +26,4 @@ pyo3 = "0.28.3"
 
 [lints.clippy]
 manual_range_contains = "allow"
+type_complexity = "allow"

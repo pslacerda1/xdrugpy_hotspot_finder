@@ -178,6 +178,7 @@ impl Hotspot {
 pub fn write_pdbstr(
     group: &str,
     writer: &mut dyn Write,
+    protein_lines: Vec<String>,
     clusters: Vec<Cluster>,
     hotspots: Vec<Hotspot>,
 ) -> Result<(), Error> {
@@ -186,17 +187,18 @@ pub fn write_pdbstr(
     for (c_idx, c) in clusters.iter().enumerate() {
         writeln!(
             writer,
-            "REMARK Object={}.CS.{} S={}",
-            group, c_idx, c.strength
+            "REMARK Object={}.CS.{} Group={} S={}",
+            group, c_idx, group, c.strength
         )?;
     }
     for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(
             writer,
-            "REMARK Object={}.{:?}.{} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
+            "REMARK Object={}.{:?}.{} Group={} Class={:?} ST={} S0={} S1={} SZ={} CD={:.3} MD={:.3} Len={}",
             group,
             hs.class,
             hs_idx,
+            group,
             hs.class,
             hs.strength_total,
             hs.strength_0,
@@ -206,6 +208,11 @@ pub fn write_pdbstr(
             hs.max_distance,
             hs.clusters.len(),
         )?;
+    }
+    // Exporta a estrutura da proteína.
+    writeln!(writer, "HEADER {}.protein", group)?;
+    for prot_line in protein_lines.iter() {
+        writeln!(writer, "{}", prot_line)?;
     }
     // Exporta os clusters e hotspots efetivamente.
     for (c_idx, c) in clusters.into_iter().enumerate() {
@@ -225,7 +232,7 @@ pub fn find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-) -> Result<(Vec<Cluster>, Vec<Hotspot>), Error> {
+) -> Result<(Vec<String>, Vec<Cluster>, Vec<Hotspot>), Error> {
     //
     // Lê arquivo PDB.
     //
@@ -453,5 +460,5 @@ pub fn find_hotspots(
         }
     }
 
-    Ok((clusters, hotspots))
+    Ok((prot_pdb_lines, clusters, hotspots))
 }
