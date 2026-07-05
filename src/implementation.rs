@@ -280,9 +280,14 @@ pub fn find_hotspots(
             let title = line[7..line.len()].trim();
             if !title.contains("protein") {
                 // Extrai força.
-                let strength: u32 = title[title.len() - 3..title.len()]
-                    .parse()
-                    .with_context(|| "Can't parse the strength from title")?;
+                let strength: u32 = if title.ends_with(".pdb") {
+                    title[(title.len()-4-3)..(title.len()-4)].parse()
+                }
+                else
+                {
+                    title[(title.len() - 3)..title.len()].parse()
+                }?;
+                
                 let c = Cluster {
                     title: String::from(title),
                     strength,
