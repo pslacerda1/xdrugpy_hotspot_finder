@@ -32,15 +32,15 @@ struct Cli {
     clash_threshold: f32,
 
     /// Number of pseudo-atoms to detect clashes between two atoms
-    #[arg(short='p', long, default_value_t = 25)]
+    #[arg(short = 'p', long, default_value_t = 25)]
     num_pseudoatoms: u32,
 
     /// Radius of each pseudo-atom
-    #[arg(short='r', long, default_value_t = 0.5)]
+    #[arg(short = 'r', long, default_value_t = 0.5)]
     pseudoatom_radius: f32,
 
     /// Use deep search
-    #[arg(short='d', long, default_value_t = false)]
+    #[arg(short = 'd', long, default_value_t = false)]
     deep_search: bool,
 
     // Remove nested
