@@ -131,6 +131,7 @@ pub fn py_find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
+    remove_nested: bool,
 ) -> PyResult<(Vec<String>, Vec<PyCluster>, Vec<PyHotspot>)> {
     let (protein_lines, clusters, hotspots) = find_hotspots(
         pdb_str,
@@ -138,6 +139,7 @@ pub fn py_find_hotspots(
         num_pseudoatoms,
         pseudoatom_radius,
         deep_search,
+        remove_nested,
     )
     .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 

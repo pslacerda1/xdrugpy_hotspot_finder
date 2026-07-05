@@ -7,16 +7,19 @@ extern crate petgraph;
 use anyhow::{Context, Error, Result};
 use derive_more::Debug;
 use itertools::Itertools;
+use itertools::enumerate;
 use kiddo::ImmutableKdTree;
 use kiddo::SquaredEuclidean;
 use ordered_float::OrderedFloat;
+use petgraph::Undirected;
 use petgraph::algo::kosaraju_scc;
+use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
-use petgraph::{Graph, Undirected};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Write;
 
 pub type Atom = [OrderedFloat<f32>; 3];
+type ClusterGraph<'a> = Graph<usize, EdgeData, Undirected>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Cluster {
@@ -66,9 +69,10 @@ fn calc_centroid(atoms: &[Atom]) -> Atom {
     [cx / n, cy / n, cz / n]
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct EdgeData {
-    max_distance: f32,
-    centroid_distance: f32,
+    max_distance: OrderedFloat<f32>,
+    centroid_distance: OrderedFloat<f32>,
 }
 
 fn calc_distance(a: &Atom, b: &Atom) -> f32 {
@@ -84,6 +88,7 @@ fn determine_class(
     max_distance: f32,
 ) -> Option<HotspotClass> {
     let centroid_distance = centroid_distance.unwrap_or(0f32);
+
     if strength_0 >= 16 && centroid_distance < 8.0 && max_distance >= 10.0 {
         Some(HotspotClass::D)
     } else if strength_0 >= 16
@@ -226,12 +231,38 @@ pub fn write_pdbstr(
     Ok(())
 }
 
+/// OhMyGPT
+fn is_connected_subset(g: &ClusterGraph, subset: &[NodeIndex]) -> bool {
+    if subset.is_empty() {
+        return false;
+    }
+    let keep: Vec<NodeIndex> = subset.to_vec();
+    let start: NodeIndex = subset[0];
+
+    let mut stack = vec![start];
+    let mut visited: HashSet<NodeIndex> = HashSet::new();
+
+    while let Some(u) = stack.pop() {
+        if !visited.insert(u) {
+            continue;
+        }
+        for v in g.neighbors_undirected(u) {
+            if keep.contains(&v) && !visited.contains(&v) {
+                stack.push(v);
+            }
+        }
+    }
+
+    visited.len() == keep.len()
+}
+
 pub fn find_hotspots(
     pdb_str: String,
     clash_threshold: f32,
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
+    remove_nested: bool,
 ) -> Result<(Vec<String>, Vec<Cluster>, Vec<Hotspot>), Error> {
     //
     // Lê arquivo PDB.
@@ -300,31 +331,42 @@ pub fn find_hotspots(
         c.pdb_buffer.pop();
     }
 
+    // Apenas CSs fortezinhos
+    clusters = clusters
+        .into_iter()
+        .filter(|c| c.strength >= 5)
+        .collect_vec();
+
     //
     // Computa variáveis a nível de pares de clusters.
-    //
+    //'''
     let _prot_f32_vec: Vec<[f32; 3]> = prot.iter().map(|a| [a[0].0, a[1].0, a[2].0]).collect();
     let tree = ImmutableKdTree::<f32, 3>::new_from_slice(_prot_f32_vec.as_slice());
-    let mut g = Graph::<&Cluster, EdgeData, Undirected>::new_undirected();
-    let mut centroids_map: HashMap<&Cluster, Atom> = HashMap::new();
+    let mut g = ClusterGraph::new_undirected();
+    let mut cluster_ix_to_node_map: HashMap<usize, NodeIndex<u32>> = HashMap::new();
+    let mut cluster_to_node_map: HashMap<&Cluster, NodeIndex<u32>> = HashMap::new();
+    let mut node_to_cluster_ix_map: HashMap<NodeIndex<u32>, usize> = HashMap::new();
+    let mut centroids_map: HashMap<usize, Atom> = HashMap::new();
 
-    for c in clusters.iter() {
+    for (idx, c) in enumerate(clusters.clone()) {
         if c.strength >= 5 {
-            g.add_node(c);
-            centroids_map.insert(c, calc_centroid(&c.atoms));
+            let n = g.add_node(idx);
+            centroids_map.insert(idx, calc_centroid(&c.atoms));
+            cluster_ix_to_node_map.insert(idx, n);
+            node_to_cluster_ix_map.insert(n, idx);
+            cluster_to_node_map.insert(&clusters[idx], n);
         }
     }
 
-    // Calcula impedimentos estéreos (clashes) entre sítios consenso.
-    for n1 in g.node_indices() {
-        for n2 in g.node_indices() {
-            if n1 > n2 {
+    // Percorre cada par de clusters, incluindo o caso ix1 == ix2.
+    // O caso ix1 == ix2 é intencional e permite hotspots unitários.
+    for (ix1, c1) in enumerate(clusters.clone()) {
+        for (ix2, c2) in enumerate(clusters.clone()) {
+            if ix1 > ix2 {
                 continue;
             }
             let mut max_distance: f32 = 0f32;
             let mut clashes: usize = 0;
-            let c1 = g[n1];
-            let c2 = g[n2];
 
             // self-loops não têm impedimentos estéreos
             for at1 in c1.atoms.iter() {
@@ -334,9 +376,9 @@ pub fn find_hotspots(
                     if dist > max_distance {
                         max_distance = dist;
                     }
-                    if n1 != n2 {
+                    if ix1 != ix2 {
                         // 25 pseudo-átomos entre cada at1 e at2 de cada cluster.
-                        for i in 0..num_pseudoatoms {
+                        for i in 1..num_pseudoatoms {
                             let t = i as f32 / num_pseudoatoms as f32;
                             let ball: [f32; 3] = [
                                 at1[0].0 + (at2[0].0 - at1[0].0) * t,
@@ -357,15 +399,18 @@ pub fn find_hotspots(
             // Cria links quando não há impedimentos estéreos entre os clusters.
             let clash_index = clashes as f32 / (c1.atoms.len() as f32 * c2.atoms.len() as f32);
             if clash_index < clash_threshold {
-                let centroid1 = centroids_map[&c1];
-                let centroid2 = centroids_map[&c2];
+                let centroid1 = centroids_map[&ix1];
+                let centroid2 = centroids_map[&ix2];
                 let centroid_distance = calc_distance(&centroid1, &centroid2);
+
+                let n1 = cluster_ix_to_node_map[&ix1];
+                let n2 = cluster_ix_to_node_map[&ix2];
                 g.add_edge(
                     n1,
                     n2,
                     EdgeData {
-                        centroid_distance,
-                        max_distance,
+                        max_distance: OrderedFloat::from(max_distance),
+                        centroid_distance: OrderedFloat::from(centroid_distance),
                     },
                 );
             }
@@ -373,29 +418,84 @@ pub fn find_hotspots(
     }
 
     //
-    // Hotspots são (sub)componentes conectados que agrupam clusters.
+    // Hotspots são combinações de clusters
     //
-
-    let mut lets_try = kosaraju_scc(&g);
-    if deep_search {
-        for scc in lets_try.clone() {
-            for k in 1..scc.len() {
-                for comb in scc.iter().combinations(k) {
-                    let subset: Vec<NodeIndex> = comb.into_iter().copied().collect();
-                    lets_try.push(subset);
-                }
+    let mut lets_try: Vec<Vec<NodeIndex>>;
+    if !deep_search {
+        // Sub-componentes conectados são uma tentativa superficial.
+        lets_try = kosaraju_scc(&g)
+    } else {
+        lets_try = Vec::new();
+        for k in 1..clusters.len() {
+            let cluster_combinations = clusters
+                .iter()
+                .map(|c| cluster_to_node_map[&c])
+                .combinations(k);
+            for comb in cluster_combinations {
+                let subset: Vec<NodeIndex> = comb;
+                lets_try.push(subset.clone());
             }
         }
-    }
+    };
+
     let mut hotspots: Vec<Hotspot> = Vec::new();
-    for subset in lets_try {
+    while !lets_try.is_empty() {
+        let subset = lets_try
+            .pop()
+            .with_context(|| "Impossible condition because lets_try.len()>0")?;
+
+        if remove_nested {
+            // Ordena lets_try de modo que superset_contains os subsets ordenados
+            // por ST do menor pro maior
+            let retry: Vec<Vec<NodeIndex>> = lets_try
+                .iter()
+                .cloned()
+                .sorted_by(|v1, v2| {
+                    v1.iter()
+                        .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                        .sum::<u32>()
+                        .cmp(
+                            &(v2.iter()
+                                .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                                .sum::<u32>()),
+                        )
+                })
+                .collect_vec();
+
+            // Todos os CSs dos subconjuntos são contidos no superset candidato à HS
+            // portanto este HS engloba esta combinação de CSs
+            let mut superset_contains = 0u32;
+            for superset in retry {
+                // FIXME o HS com mais CSs vai ser incluso em duplicata
+                if subset.len() > superset.len() {
+                    continue;
+                }
+                for &sub_n in subset.iter() {
+                    if superset.contains(&sub_n) {
+                        superset_contains += 1;
+                    }
+                }
+            }
+            if superset_contains >= subset.len() as u32 {
+                continue;
+            }
+        }
+
+        // Este subconjunto é um componente conectado, logo há acessibilidade
+        // entre os CSs deste candidato à HS.
+        if !is_connected_subset(&g, &subset) {
+            continue;
+        }
+
         //
         // Hotspots têm uma distância inter-centroids máxima.
         //
-        let &n0 = subset
+        let c0 = subset
             .iter()
-            .max_by(|&&n1, &&n2| g[n1].strength.cmp(&g[n2].strength))
+            .map(|&n| clusters[node_to_cluster_ix_map[&n]].clone())
+            .max_by(|c1, c2| c1.strength.cmp(&c2.strength))
             .with_context(|| "All components must have at least one node")?;
+        let n0 = cluster_to_node_map[&c0];
 
         let max_centroid_distance: f32 = subset
             .iter()
@@ -404,7 +504,7 @@ pub fn find_hotspots(
                     && let Some(e) = g.find_edge(n0, n)
                 {
                     let data = g.edge_weight(e).unwrap(); // todos os edges têm EdgeData
-                    data.centroid_distance
+                    data.centroid_distance.0
                 } else {
                     0f32
                 }
@@ -423,13 +523,18 @@ pub fn find_hotspots(
         let mut max_distance = 0f32;
         for &n1 in subset.iter() {
             for &n2 in subset.iter() {
-                if n1 > n2 {
+                let ix1 = node_to_cluster_ix_map[&n1];
+                let ix2 = node_to_cluster_ix_map[&n2];
+
+                if ix1 > ix2 {
                     continue;
                 }
+                let n1 = cluster_ix_to_node_map[&ix1];
+                let n2 = cluster_ix_to_node_map[&ix2];
                 if let Some(e) = g.find_edge(n1, n2) {
                     let data = g.edge_weight(e).unwrap(); // todos os edges têm EdgeData
-                    if data.max_distance > max_distance {
-                        max_distance = data.max_distance;
+                    if data.max_distance.0 > max_distance {
+                        max_distance = data.max_distance.0;
                     }
                 }
             }
@@ -438,7 +543,11 @@ pub fn find_hotspots(
         //
         // Determina a classe do hotspot, se houver.
         //
-        let mut table: Vec<u32> = subset.iter().map(|&n| g[n].strength).sorted().collect();
+        let mut table: Vec<u32> = subset
+            .iter()
+            .map(|&n| clusters[node_to_cluster_ix_map[&n]].strength)
+            .sorted()
+            .collect();
 
         let strength_0 = table.pop().unwrap();
         let strength_1 = table.pop();
@@ -448,13 +557,19 @@ pub fn find_hotspots(
         if let Some(class) = class {
             let hs = Hotspot {
                 class,
-                strength_total: subset.iter().map(|&n| g[n].strength).sum(),
+                strength_total: subset
+                    .iter()
+                    .map(|&n| clusters[node_to_cluster_ix_map[&n]].strength)
+                    .sum(),
                 strength_0,
                 strength_1,
                 strength_z,
                 centroid_distance,
                 max_distance,
-                clusters: subset.iter().map(|&n| g[n].clone()).collect(),
+                clusters: subset
+                    .iter()
+                    .map(|&n| clusters[node_to_cluster_ix_map[&n]].clone())
+                    .collect_vec(),
             };
             hotspots.push(hs);
         }

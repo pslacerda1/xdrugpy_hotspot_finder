@@ -32,16 +32,20 @@ struct Cli {
     clash_threshold: f32,
 
     /// Number of pseudo-atoms to detect clashes between two atoms
-    #[arg(short, long, default_value_t = 25)]
+    #[arg(short='p', long, default_value_t = 25)]
     num_pseudoatoms: u32,
 
     /// Radius of each pseudo-atom
-    #[arg(short, long, default_value_t = 0.5)]
+    #[arg(short='r', long, default_value_t = 0.5)]
     pseudoatom_radius: f32,
 
     /// Use deep search
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short='d', long, default_value_t = false)]
     deep_search: bool,
+
+    // Remove nested
+    #[arg[short='n', long, default_value_t = false]]
+    remove_nested: bool,
 }
 
 fn main() -> Result<(), Error> {
@@ -81,6 +85,7 @@ fn main() -> Result<(), Error> {
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
+        args.remove_nested,
     )?;
 
     xdrugpy_hotspot_finder::write_pdbstr(
