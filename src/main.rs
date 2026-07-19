@@ -43,6 +43,10 @@ struct Cli {
     #[arg(short = 'd', long, default_value_t = false)]
     deep_search: bool,
 
+    // Max number of clusters in a hotspot
+    #[arg(short = 's', long, default_value_t = 10)]
+    max_size: u32,
+
     // Remove nested
     #[arg[short='n', long, default_value_t = false]]
     remove_nested: bool,
@@ -85,6 +89,7 @@ fn main() -> Result<(), Error> {
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
+        args.max_size,
         args.remove_nested,
     )?;
 

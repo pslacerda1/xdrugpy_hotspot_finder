@@ -220,11 +220,11 @@ pub fn write_pdbstr(
         writeln!(writer, "{}", prot_line)?;
     }
     // Exporta os clusters e hotspots efetivamente.
-    for (c_idx, c) in clusters.into_iter().enumerate() {
+    for (c_idx, c) in clusters.iter().enumerate() {
         writeln!(writer, "HEADER {}.CS.{}", group, c_idx)?;
         write!(writer, "{}", c.get_pdbstr(0))?;
     }
-    for (hs_idx, hs) in hotspots.into_iter().enumerate() {
+    for (hs_idx, hs) in hotspots.iter().enumerate() {
         writeln!(writer, "HEADER {}.{:?}.{}", group, hs.class, hs_idx,)?;
         write!(writer, "{}", hs.get_pdbstr())?;
     }
@@ -262,6 +262,7 @@ pub fn find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
+    max_size: u32,
     remove_nested: bool,
 ) -> Result<(Vec<String>, Vec<Cluster>, Vec<Hotspot>), Error> {
     //
@@ -431,7 +432,15 @@ pub fn find_hotspots(
         lets_try = kosaraju_scc(&g)
     } else {
         lets_try = Vec::new();
-        for k in 1..clusters.len() {
+        
+        // Tente todas as combinações
+        let max_size = if max_size as usize > clusters.len() {
+            clusters.len()
+        } else {
+            max_size as usize
+        };
+        
+        for k in 1..max_size {
             let cluster_combinations = clusters
                 .iter()
                 .map(|c| cluster_to_node_map[&c])
