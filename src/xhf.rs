@@ -34,7 +34,6 @@ pub struct Cluster {
 }
 
 impl Cluster {
-
     pub fn get_pdbstr(&self, atom_offset: usize) -> String {
         let mut buffer = String::new();
         for (a_idx, pdb_line) in self.pdb_buffer.lines().enumerate() {
@@ -256,13 +255,11 @@ pub fn find_hotspots(
             if !title.contains("protein") {
                 // Extrai força.
                 let strength: u32 = if title.ends_with(".pdb") {
-                    title[(title.len()-4-3)..(title.len()-4)].parse()
-                }
-                else
-                {
+                    title[(title.len() - 4 - 3)..(title.len() - 4)].parse()
+                } else {
                     title[(title.len() - 3)..title.len()].parse()
                 }?;
-                
+
                 let c = Cluster {
                     title: String::from(title),
                     strength,
@@ -406,14 +403,14 @@ pub fn find_hotspots(
         lets_try = kosaraju_scc(&g)
     } else {
         lets_try = Vec::new();
-        
+
         // Tente todas as combinações
         let max_size = if max_size as usize > clusters.len() {
             clusters.len()
         } else {
             max_size as usize
         };
-        
+
         for k in 1..max_size {
             let cluster_combinations = clusters
                 .iter()
@@ -566,17 +563,28 @@ pub fn find_hotspots(
     Ok((prot_pdb_lines, clusters, hotspots))
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_calc_centroid() {
-        let atoms: Vec<[OrderedFloat<f32>; 3]>  = vec![
-            [OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0)],
-            [OrderedFloat::from(1.0), OrderedFloat::from(1.0), OrderedFloat::from(1.5)],
-            [OrderedFloat::from(2.0), OrderedFloat::from(2.3), OrderedFloat::from(3.0)]
+        let atoms: Vec<[OrderedFloat<f32>; 3]> = vec![
+            [
+                OrderedFloat::from(0.0),
+                OrderedFloat::from(0.0),
+                OrderedFloat::from(0.0),
+            ],
+            [
+                OrderedFloat::from(1.0),
+                OrderedFloat::from(1.0),
+                OrderedFloat::from(1.5),
+            ],
+            [
+                OrderedFloat::from(2.0),
+                OrderedFloat::from(2.3),
+                OrderedFloat::from(3.0),
+            ],
         ];
         let centroid = calc_centroid(&atoms);
         assert!(centroid.get(0).unwrap().eq(&1.0));
