@@ -35,7 +35,7 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   build-and-release:
-    name: Release for ${{ matrix.os.name }} (Python ${{ matrix.python-version }})
+    name: Release for ${{ matrix.os }} (Python ${{ matrix.python-version }})
     needs: fmt-clippy
     
     permissions:
@@ -44,13 +44,14 @@ jobs:
       fail-fast: false
       matrix:
         program: ["xdrugpy_hotspot_finder"]
-        os: [
-          {name: "ubuntu", exe: ""},
-          {name: "windows", exe: ".exe"},
-          {name: "macos", exe: ""}
-        ]
+        os: [ubuntu, windows, macos]
         python-version: ["3.10", "3.11", "3.12"]
-    runs-on: "${{ matrix.os.name }}-latest"
+        exclude:
+          - os: macos
+            python-version: "3.10"
+    runs-on: "${{ matrix.os }}-latest"
+    env:
+      EXE: ${{ matrix.os == 'windows' && '.exe' || '' }}
 
     steps:
       #
@@ -65,7 +66,7 @@ jobs:
       - name: Enable Rust Cache
         uses: swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.os.name }}-release
+          key: ${{ matrix.os }}-release
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -98,8 +99,8 @@ jobs:
         shell: bash
         run: >
           mv
-          target/release/${{ matrix.program }}${{ matrix.os.exe }}
-          target/release/${{ matrix.program }}-${{matrix.os.name }}${{ matrix.os.exe }}
+          target/release/${{ matrix.program }}${{ env.EXE }}
+          target/release/${{ matrix.program }}-${{matrix.os }}${{ env.EXE }}
 
       - name: Release Executable Assets
         uses: softprops/action-gh-release@v2
@@ -113,5 +114,5 @@ jobs:
           draft: true
           prerelease: true
           files: |
-            target/release/${{ matrix.program }}-${{ matrix.os.name }}${{ matrix.os.exe }}
+            target/release/${{ matrix.program }}-${{ matrix.os }}${{ env.EXE }}
             target/wheels/*.whl
