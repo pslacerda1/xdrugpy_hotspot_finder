@@ -42,11 +42,11 @@ pub struct PyCluster(pub(crate) Cluster);
 impl PyCluster {
     #[getter]
     pub fn title(&self) -> String {
-        self.0.get_title()
+        self.0.title.clone()
     }
     #[getter]
     pub fn strength(&self) -> u32 {
-        self.0.get_strength()
+        self.0.strength
     }
 
     pub fn get_pdbstr(&mut self, atom_offset: usize) -> String {
@@ -71,31 +71,31 @@ pub struct PyHotspot(pub(crate) Hotspot);
 impl PyHotspot {
     #[getter]
     pub fn class(&self) -> PyHotspotClass {
-        self.0.get_class().into()
+        self.0.class.clone().into()
     }
     #[getter]
     pub fn strength_total(&self) -> u32 {
-        self.0.get_strength_total()
+        self.0.strength_total
     }
     #[getter]
     pub fn strength_0(&self) -> u32 {
-        self.0.get_strength_0()
+        self.0.strength_0
     }
     #[getter]
     pub fn strength_1(&self) -> Option<u32> {
-        self.0.get_strength_1()
+        self.0.strength_1
     }
     #[getter]
     pub fn strength_z(&self) -> Option<u32> {
-        self.0.get_strength_z()
+        self.0.strength_z
     }
     #[getter]
     pub fn max_distance(&self) -> f32 {
-        self.0.get_max_distance()
+        self.0.max_distance
     }
     #[getter]
     pub fn centroid_distance(&self) -> Option<f32> {
-        self.0.get_centroid_distance()
+        self.0.centroid_distance
     }
 
     #[getter]

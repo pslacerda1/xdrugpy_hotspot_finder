@@ -34,13 +34,6 @@ pub struct Cluster {
 }
 
 impl Cluster {
-    pub fn get_title(&self) -> String {
-        self.title.clone()
-    }
-
-    pub fn get_strength(&self) -> u32 {
-        self.strength
-    }
 
     pub fn get_pdbstr(&self, atom_offset: usize) -> String {
         let mut buffer = String::new();
@@ -148,25 +141,6 @@ impl Hotspot {
     pub fn get_class(&self) -> HotspotClass {
         self.class.clone()
     }
-    pub fn get_strength_total(&self) -> u32 {
-        self.strength_total
-    }
-    pub fn get_strength_0(&self) -> u32 {
-        self.strength_0
-    }
-    pub fn get_strength_1(&self) -> Option<u32> {
-        self.strength_1
-    }
-    pub fn get_strength_z(&self) -> Option<u32> {
-        self.strength_z
-    }
-    pub fn get_max_distance(&self) -> f32 {
-        self.max_distance
-    }
-    pub fn get_centroid_distance(&self) -> Option<f32> {
-        self.centroid_distance
-    }
-
     pub fn get_pdbstr(&self) -> String {
         let mut buffer = String::new();
         let mut atom_offset = 0usize;
@@ -345,7 +319,7 @@ pub fn find_hotspots(
 
     //
     // Computa variáveis a nível de pares de clusters.
-    //'''
+    //
     let _prot_f32_vec: Vec<[f32; 3]> = prot.iter().map(|a| [a[0].0, a[1].0, a[2].0]).collect();
     let tree = ImmutableKdTree::<f32, 3>::new_from_slice(_prot_f32_vec.as_slice());
     let mut g = ClusterGraph::new_undirected();
@@ -456,7 +430,7 @@ pub fn find_hotspots(
     while !lets_try.is_empty() {
         let subset = lets_try
             .pop()
-            .with_context(|| "Impossible condition because lets_try.len()>0")?;
+            .with_context(|| "Impossible condition because lets_try.is_empty() is false")?;
 
         if remove_nested {
             // Ordena lets_try de modo que superset_contains os subsets ordenados
@@ -590,4 +564,23 @@ pub fn find_hotspots(
     }
 
     Ok((prot_pdb_lines, clusters, hotspots))
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_calc_centroid() {
+        let atoms: Vec<[OrderedFloat<f32>; 3]>  = vec![
+            [OrderedFloat::from(0.0), OrderedFloat::from(0.0), OrderedFloat::from(0.0)],
+            [OrderedFloat::from(1.0), OrderedFloat::from(1.0), OrderedFloat::from(1.5)],
+            [OrderedFloat::from(2.0), OrderedFloat::from(2.3), OrderedFloat::from(3.0)]
+        ];
+        let centroid = calc_centroid(&atoms);
+        assert!(centroid.get(0).unwrap().eq(&1.0));
+        assert!(centroid.get(1).unwrap().eq(&1.1));
+        assert!(centroid.get(2).unwrap().eq(&1.5));
+    }
 }

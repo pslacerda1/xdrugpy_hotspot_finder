@@ -27,7 +27,19 @@ struct Cli {
     #[arg(short, long, default_value = "-")]
     output: String,
 
-    /// Steric clash index threshold
+    /// Use combinatory search
+    #[arg(short = 'd', long, default_value_t = false)]
+    deep_search: bool,
+
+    // The max number of consensus sites into a hotspot in deep searchs
+    #[arg(short = 's', long, default_value_t = 10)]
+    max_size: u32,
+
+    // Remove hotspots that fully fits nested/inside others
+    #[arg[short='n', long, default_value_t = false]]
+    remove_nested: bool,
+
+    /// The tolerance percentage for steric clashes in hotspot graphs
     #[arg(short, long, default_value_t = 0.1)]
     clash_threshold: f32,
 
@@ -38,18 +50,6 @@ struct Cli {
     /// Radius of each pseudo-atom
     #[arg(short = 'r', long, default_value_t = 0.5)]
     pseudoatom_radius: f32,
-
-    /// Use deep search
-    #[arg(short = 'd', long, default_value_t = false)]
-    deep_search: bool,
-
-    // Max number of clusters in a hotspot
-    #[arg(short = 's', long, default_value_t = 10)]
-    max_size: u32,
-
-    // Remove nested
-    #[arg[short='n', long, default_value_t = false]]
-    remove_nested: bool,
 }
 
 fn main() -> Result<(), Error> {

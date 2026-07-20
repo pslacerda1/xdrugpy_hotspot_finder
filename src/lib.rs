@@ -1,5 +1,5 @@
-mod implementation;
-pub use implementation::{Cluster, Hotspot, HotspotClass, find_hotspots, write_pdbstr};
+mod xhf;
+pub use xhf::{Cluster, Hotspot, HotspotClass, find_hotspots, write_pdbstr};
 
 mod python;
 use pyo3::prelude::{Bound, PyModule, PyModuleMethods, PyResult, pymodule, wrap_pyfunction};
