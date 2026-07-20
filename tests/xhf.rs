@@ -17,7 +17,7 @@ fn test_general_loading_8agl() {
     assert_eq!(8, clusters.len());
     assert_eq!(hotspots.len(), 1);
 
-    let hs = hotspots.get(0).expect("must have");
+    let hs = hotspots.first().expect("must have");
     assert_eq!(69, hs.strength_total);
     assert_relative_eq!(20.49, hs.max_distance, epsilon = 0.01);
     //// this is really undefined for 8AGL because there is clashes between CS0 and CS6
@@ -37,7 +37,7 @@ fn test_general_loading_8b7j() {
     assert_eq!(9, clusters.len());
     assert_eq!(hotspots.len(), 19);
 
-    let hs = hotspots.get(0).expect("must have");
+    let hs = hotspots.first().expect("must have");
     assert_eq!(46, hs.strength_total);
     assert_eq!(14, hs.strength_0);
     assert_eq!(13, hs.strength_1.unwrap());

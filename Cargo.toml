@@ -28,3 +28,4 @@ approx = "0.5.1"
 [lints.clippy]
 manual_range_contains = "allow"
 type_complexity = "allow"
+get_first = "allow"

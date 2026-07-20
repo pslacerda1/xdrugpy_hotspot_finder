@@ -79,7 +79,7 @@ fn main() -> Result<(), Error> {
     } else {
         Box::new(
             File::create(args.output.clone())
-                .with_context(|| format!("Can't write to file '{}'", &args.output))?,
+                .with_context(|| format!("Can't write to file '{}'", args.output))?,
         )
     };
 
