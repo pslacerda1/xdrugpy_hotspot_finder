@@ -32,7 +32,7 @@ struct Cli {
     deep_search: bool,
 
     // The max number of consensus sites into a hotspot in deep searchs
-    #[arg(short = 's', long, default_value_t = 10)]
+    #[arg(short = 's', long, default_value_t = 8)]
     max_size: u32,
 
     // Remove hotspots that fully fits nested/inside others
