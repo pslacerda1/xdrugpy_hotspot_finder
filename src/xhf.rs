@@ -609,8 +609,8 @@ mod tests {
     #[test]
     fn test_is_nested() {
         let everyone = [vec![2, 3, 4], vec![1, 2, 3], vec![3, 4, 5]];
-        assert!(!is_nested(&vec![1, 2, 3], &everyone));
-        assert!(is_nested(&vec![1, 2], &everyone));
-        assert!(!is_nested(&vec![1, 2, 4], &everyone));
+        assert!(!is_nested(&[1, 2, 3], &everyone));
+        assert!(is_nested(&[1, 2], &everyone));
+        assert!(!is_nested(&[1, 2, 4], &everyone));
     }
 }
