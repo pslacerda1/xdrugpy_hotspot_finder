@@ -15,11 +15,11 @@ use petgraph::Undirected;
 use petgraph::algo::kosaraju_scc;
 use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
-use std::collections::{HashMap, HashSet};
-use std::io::Write;
 use std::collections::VecDeque;
-use std::iter::zip;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::io::Write;
+use std::iter::zip;
 
 pub type Atom = [OrderedFloat<f32>; 3];
 type ClusterGraph<'a> = Graph<usize, EdgeData, Undirected>;
@@ -232,23 +232,15 @@ fn is_connected_subset(g: &ClusterGraph, subset: &[NodeIndex]) -> bool {
     visited.len() == keep.len()
 }
 
-
-fn is_nested<T: Eq>(
-    set: &[T], 
-    all_sets: &[Vec<T>],
-) -> bool {
-
+fn is_nested<T: Eq>(set: &[T], all_sets: &[Vec<T>]) -> bool {
     // Todos os CSs dos subconjuntos são contidos no superset candidato à HS
     // portanto este HS engloba esta combinação de CSs
     for superset in all_sets.iter() {
         // FIXME o HS com mais CSs vai ser incluso em duplicata?
         if set.len() > superset.len() {
             continue;
-        }
-        else if set.len() == superset.len() {
-            if zip(set.iter(), superset.iter())
-                    .all(|(a,b)| a == b)
-            {
+        } else if set.len() == superset.len() {
+            if zip(set.iter(), superset.iter()).all(|(a, b)| a == b) {
                 continue;
             }
         }
@@ -456,20 +448,20 @@ pub fn find_hotspots(
     // Ordena lets_try
     lets_try = VecDeque::from(
         lets_try
-        .into_iter()
-        .sorted_by(|v1, v2| {
-            v1.iter()
-                .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
-                .sum::<u32>()
-                .cmp(
-                    &(v2.iter()
-                        .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
-                        .sum::<u32>()),
-                )
-        })
-        .collect_vec()
+            .into_iter()
+            .sorted_by(|v1, v2| {
+                v1.iter()
+                    .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                    .sum::<u32>()
+                    .cmp(
+                        &(v2.iter()
+                            .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                            .sum::<u32>()),
+                    )
+            })
+            .collect_vec(),
     );
-    
+
     let mut hotspots: Vec<Hotspot> = Vec::new();
     while !lets_try.is_empty() {
         let subset = lets_try
@@ -577,16 +569,10 @@ pub fn find_hotspots(
         }
         hotspots.sort_by_key(|hs| hs.strength_total);
 
-        let all_clusters = hotspots
-            .iter()
-            .map(|hs| hs.clusters.clone())
-            .collect_vec();
+        let all_clusters = hotspots.iter().map(|hs| hs.clusters.clone()).collect_vec();
         let clusters_slices = all_clusters.as_slice();
 
-        hotspots.retain(|hs| {
-            !is_nested(&hs.clusters, clusters_slices)
-        });
-
+        hotspots.retain(|hs| !is_nested(&hs.clusters, clusters_slices));
     }
     Ok((prot_pdb_lines, clusters, hotspots))
 }
@@ -622,14 +608,9 @@ mod tests {
 
     #[test]
     fn test_is_nested() {
-        let everyone = [
-            vec![2, 3, 4],
-            vec![1, 2, 3],
-            vec![3, 4, 5],
-        ];
+        let everyone = [vec![2, 3, 4], vec![1, 2, 3], vec![3, 4, 5]];
         assert!(!is_nested(&vec![1, 2, 3], &everyone));
         assert!(is_nested(&vec![1, 2], &everyone));
         assert!(!is_nested(&vec![1, 2, 4], &everyone));
     }
-
 }
