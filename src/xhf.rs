@@ -17,6 +17,9 @@ use petgraph::graph::Graph;
 use petgraph::graph::NodeIndex;
 use std::collections::{HashMap, HashSet};
 use std::io::Write;
+use std::collections::VecDeque;
+use std::iter::zip;
+use std::hash::Hash;
 
 pub type Atom = [OrderedFloat<f32>; 3];
 type ClusterGraph<'a> = Graph<usize, EdgeData, Undirected>;
@@ -204,7 +207,7 @@ pub fn write_pdbstr(
     Ok(())
 }
 
-/// OhMyGPT
+/// OhMyGPT 100%
 fn is_connected_subset(g: &ClusterGraph, subset: &[NodeIndex]) -> bool {
     if subset.is_empty() {
         return false;
@@ -227,6 +230,33 @@ fn is_connected_subset(g: &ClusterGraph, subset: &[NodeIndex]) -> bool {
     }
 
     visited.len() == keep.len()
+}
+
+
+fn is_nested<T: Eq>(
+    set: &[T], 
+    all_sets: &[Vec<T>],
+) -> bool {
+
+    // Todos os CSs dos subconjuntos são contidos no superset candidato à HS
+    // portanto este HS engloba esta combinação de CSs
+    for superset in all_sets.iter() {
+        // FIXME o HS com mais CSs vai ser incluso em duplicata?
+        if set.len() > superset.len() {
+            continue;
+        }
+        else if set.len() == superset.len() {
+            if zip(set.iter(), superset.iter())
+                    .all(|(a,b)| a == b)
+            {
+                continue;
+            }
+        }
+        if set.iter().all(|n| superset.contains(n)) {
+            return true;
+        }
+    }
+    false
 }
 
 pub fn find_hotspots(
@@ -397,12 +427,12 @@ pub fn find_hotspots(
     //
     // Hotspots são combinações de clusters
     //
-    let mut lets_try: Vec<Vec<NodeIndex>>;
+    let mut lets_try: VecDeque<Vec<NodeIndex>>;
     if !deep_search {
         // Sub-componentes conectados são uma tentativa superficial.
-        lets_try = kosaraju_scc(&g)
+        lets_try = VecDeque::from(kosaraju_scc(&g));
     } else {
-        lets_try = Vec::new();
+        lets_try = VecDeque::new();
 
         // Tente todas as combinações
         let max_size = if max_size as usize > clusters.len() {
@@ -418,53 +448,33 @@ pub fn find_hotspots(
                 .combinations(k);
             for comb in cluster_combinations {
                 let subset: Vec<NodeIndex> = comb;
-                lets_try.push(subset.clone());
+                lets_try.push_back(subset.clone());
             }
         }
-    };
+    }
 
+    // Ordena lets_try
+    lets_try = VecDeque::from(
+        lets_try
+        .into_iter()
+        .sorted_by(|v1, v2| {
+            v1.iter()
+                .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                .sum::<u32>()
+                .cmp(
+                    &(v2.iter()
+                        .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
+                        .sum::<u32>()),
+                )
+        })
+        .collect_vec()
+    );
+    
     let mut hotspots: Vec<Hotspot> = Vec::new();
     while !lets_try.is_empty() {
         let subset = lets_try
-            .pop()
+            .pop_front()
             .with_context(|| "Impossible condition because lets_try.is_empty() is false")?;
-
-        if remove_nested {
-            // Ordena lets_try de modo que superset_contains os subsets ordenados
-            // por ST do menor pro maior
-            let retry: Vec<Vec<NodeIndex>> = lets_try
-                .iter()
-                .cloned()
-                .sorted_by(|v1, v2| {
-                    v1.iter()
-                        .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
-                        .sum::<u32>()
-                        .cmp(
-                            &(v2.iter()
-                                .map(|n| clusters[node_to_cluster_ix_map[n]].strength)
-                                .sum::<u32>()),
-                        )
-                })
-                .collect_vec();
-
-            // Todos os CSs dos subconjuntos são contidos no superset candidato à HS
-            // portanto este HS engloba esta combinação de CSs
-            let mut superset_contains = 0u32;
-            for superset in retry {
-                // FIXME o HS com mais CSs vai ser incluso em duplicata
-                if subset.len() > superset.len() {
-                    continue;
-                }
-                for &sub_n in subset.iter() {
-                    if superset.contains(&sub_n) {
-                        superset_contains += 1;
-                    }
-                }
-            }
-            if superset_contains >= subset.len() as u32 {
-                continue;
-            }
-        }
 
         // Este subconjunto é um componente conectado, logo há acessibilidade
         // entre os CSs deste candidato à HS.
@@ -560,6 +570,24 @@ pub fn find_hotspots(
         }
     }
 
+    if deep_search && remove_nested {
+        // Ordena listas
+        for hs in &mut hotspots {
+            hs.clusters.sort_by_key(|cs| cs.strength);
+        }
+        hotspots.sort_by_key(|hs| hs.strength_total);
+
+        let all_clusters = hotspots
+            .iter()
+            .map(|hs| hs.clusters.clone())
+            .collect_vec();
+        let clusters_slices = all_clusters.as_slice();
+
+        hotspots.retain(|hs| {
+            !is_nested(&hs.clusters, clusters_slices)
+        });
+
+    }
     Ok((prot_pdb_lines, clusters, hotspots))
 }
 
@@ -591,4 +619,17 @@ mod tests {
         assert!(centroid.get(1).unwrap().eq(&1.1));
         assert!(centroid.get(2).unwrap().eq(&1.5));
     }
+
+    #[test]
+    fn test_is_nested() {
+        let everyone = [
+            vec![2, 3, 4],
+            vec![1, 2, 3],
+            vec![3, 4, 5],
+        ];
+        assert!(!is_nested(&vec![1, 2, 3], &everyone));
+        assert!(is_nested(&vec![1, 2], &everyone));
+        assert!(!is_nested(&vec![1, 2, 4], &everyone));
+    }
+
 }
