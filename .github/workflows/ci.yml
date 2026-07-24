@@ -45,7 +45,7 @@ jobs:
       matrix:
         program: ["xdrugpy_hotspot_finder"]
         os: [ubuntu, windows, macos]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.12", "3.14"]
         exclude:
           - os: macos
             python-version: "3.10"
