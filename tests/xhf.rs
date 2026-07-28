@@ -12,7 +12,7 @@ fn test_general_loading_8agl() {
         .join("8AGL.pdb");
     let pdb_str = read_to_string(pdb_path).expect("can't read file");
     let (_, clusters, hotspots) =
-        find_hotspots(pdb_str, 0.15, 25, 0.5, false, 15, false).expect("must have");
+        find_hotspots(pdb_str, 0.15, 25, 0.5, false, false, 15, 5).expect("must have");
 
     assert_eq!(8, clusters.len());
     assert_eq!(hotspots.len(), 1);
@@ -32,7 +32,7 @@ fn test_general_loading_8b7j() {
         .join("8B7J.pdb");
     let pdb_str = read_to_string(pdb_path).expect("can't read file");
     let (_, clusters, hotspots) =
-        find_hotspots(pdb_str, 0.10, 25, 0.5, true, 15, true).expect("must have");
+        find_hotspots(pdb_str, 0.10, 25, 0.5, true, true, 15, 5).expect("must have");
 
     assert_eq!(9, clusters.len());
     assert_eq!(2, hotspots.len());
@@ -55,7 +55,7 @@ fn test_general_loading_cf_2tpr() {
         .join("Cf_2TPR.pdb");
     let pdb_str = read_to_string(pdb_path).expect("can't read file");
     let (_, clusters, hotspots) =
-        find_hotspots(pdb_str, 0.10, 25, 0.5, true, 15, true).expect("must have");
+        find_hotspots(pdb_str, 0.10, 25, 0.5, true, true, 15, 5).expect("must have");
 
     assert_eq!(8, clusters.len());
     assert_eq!(8, hotspots.len());

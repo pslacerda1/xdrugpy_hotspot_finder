@@ -257,8 +257,9 @@ pub fn find_hotspots(
     num_pseudoatoms: u32,
     pseudoatom_radius: f32,
     deep_search: bool,
-    max_size: u32,
     remove_nested: bool,
+    max_num_cs: u32,
+    min_cs_strength: u32,
 ) -> Result<(Vec<String>, Vec<Cluster>, Vec<Hotspot>), Error> {
     //
     // Lê arquivo PDB.
@@ -333,7 +334,8 @@ pub fn find_hotspots(
     // Apenas CSs fortezinhos
     clusters = clusters
         .into_iter()
-        .filter(|c| c.strength >= 5)
+        .filter(|c| c.strength >= min_cs_strength)
+        .take(max_num_cs as usize)
         .collect_vec();
 
     //
@@ -426,14 +428,7 @@ pub fn find_hotspots(
     } else {
         lets_try = VecDeque::new();
 
-        // Tente todas as combinações
-        let max_size = if max_size as usize > clusters.len() {
-            clusters.len()
-        } else {
-            max_size as usize
-        };
-
-        for k in 1..max_size {
+        for k in 1..clusters.len() {
             let cluster_combinations = clusters
                 .iter()
                 .map(|c| cluster_to_node_map[&c])

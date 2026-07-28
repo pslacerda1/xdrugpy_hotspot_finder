@@ -16,39 +16,43 @@ use std::io::{self, Read, Write};
 )]
 struct Cli {
     /// Input PDB file path or use '-' to read from stdin
-    #[arg(short, long)]
+    #[arg(short = 'i', long)]
     input: String,
 
     /// Group name for objects
-    #[arg(short, long)]
+    #[arg(short = 'g', long)]
     group: String,
 
-    /// Output XYZ file path or use '-' to write to stdout
-    #[arg(short, long, default_value = "-")]
+    /// Output PDB file path or use '-' to write to stdout
+    #[arg(short = 'o', long, default_value = "-")]
     output: String,
 
     /// Use combinatory search
     #[arg(short = 'd', long, default_value_t = false)]
     deep_search: bool,
 
-    // The max number of consensus sites into a hotspot in deep searchs
-    #[arg(short = 's', long, default_value_t = 8)]
-    max_size: u32,
-
     // Remove hotspots that fully fits nested/inside others
-    #[arg[short='n', long, default_value_t = false]]
+    #[arg[long, default_value_t = false]]
     remove_nested: bool,
 
+    // Maximum number of consensus sites to evaluate
+    #[arg[long, default_value_t = 15]]
+    max_num_cs: u32,
+
+    // Minimum strength of a consensus site
+    #[arg(long, default_value_t = 5)]
+    min_cs_strength: u32,
+
     /// The tolerance percentage for steric clashes in hotspot graphs
-    #[arg(short, long, default_value_t = 0.1)]
+    #[arg(long, default_value_t = 0.1)]
     clash_threshold: f32,
 
     /// Number of pseudo-atoms to detect clashes between two atoms
-    #[arg(short = 'p', long, default_value_t = 25)]
+    #[arg(long, default_value_t = 25)]
     num_pseudoatoms: u32,
 
     /// Radius of each pseudo-atom
-    #[arg(short = 'r', long, default_value_t = 0.5)]
+    #[arg(long, default_value_t = 0.5)]
     pseudoatom_radius: f32,
 }
 
@@ -89,8 +93,9 @@ fn main() -> Result<(), Error> {
         args.num_pseudoatoms,
         args.pseudoatom_radius,
         args.deep_search,
-        args.max_size,
         args.remove_nested,
+        args.max_num_cs,
+        args.min_cs_strength,
     )?;
 
     xdrugpy_hotspot_finder::write_pdbstr(
