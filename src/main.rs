@@ -98,13 +98,7 @@ fn main() -> Result<(), Error> {
         args.min_cs_strength,
     )?;
 
-    xdrugpy_xhf::write_pdbstr(
-        &args.group,
-        &mut writer,
-        protein_lines,
-        clusters,
-        hotspots,
-    )?;
+    xdrugpy_xhf::write_pdbstr(&args.group, &mut writer, protein_lines, clusters, hotspots)?;
 
     Ok(())
 }
