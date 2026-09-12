@@ -37,6 +37,9 @@ fn test_general_loading_8b7j() {
     assert_eq!(9, clusters.len());
     assert_eq!(2, hotspots.len());
 
+    assert_eq!(16, clusters.get(0).expect("must have").strength);
+    assert_eq!(14, clusters.get(1).expect("must have").strength);
+
     let hs = hotspots.get(1).expect("must have");
     assert_eq!(46, hs.strength_total);
     assert_eq!(14, hs.strength_0);
@@ -46,6 +49,7 @@ fn test_general_loading_8b7j() {
     assert_relative_eq!(15.86, hs.max_distance, epsilon = 0.01);
     assert_eq!(5, hs.clusters.len());
 }
+
 
 #[test]
 fn test_general_loading_cf_2tpr() {
@@ -68,4 +72,19 @@ fn test_general_loading_cf_2tpr() {
     assert_relative_eq!(12.026, hs.centroid_distance.unwrap(), epsilon = 0.001);
     assert_relative_eq!(27.312, hs.max_distance, epsilon = 0.001);
     assert_eq!(7, hs.clusters.len());
+}
+
+
+#[test]
+fn test_no_hetatm() {
+    let pdb_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("tests")
+        .join("data")
+        .join("3mer_c10.pdb");
+    let pdb_str = read_to_string(pdb_path).expect("can't read file");
+    let (_, clusters, hotspots) =
+        find_hotspots(pdb_str, 0.10, 25, 0.5, true, true, 15, 5).expect("must have");
+
+    assert_eq!(4, clusters.len());
+    assert_eq!(10, hotspots.len());
 }
