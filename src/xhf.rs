@@ -323,7 +323,7 @@ pub fn find_hotspots(
                 prot.push(atom);
                 prot_pdb_lines.push(String::from(&line[..54]));
             }
-            if (is_het || (is_atom && header_count > 1))
+            if (is_het || (is_atom && header_count >= 1))
                 && let Some(cluster) = clusters.last_mut()
             {
                 cluster.atoms.push(atom);
