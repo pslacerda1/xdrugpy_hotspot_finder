@@ -8,7 +8,7 @@ use std::io::{self, Read, Write};
 /// FTMap hotspot detector
 #[derive(clap::Parser)]
 #[command(
-    name = "xdrugpy_hotspot_finder",
+    name = "xdrugpy_xhf",
     version = env!("__VERSION__"),
     author = "Pedro Sousa Lacerda <pslacerda@gmail.com>",
     about = "Detect hotspots on FTMap/FTMove data.",
@@ -87,7 +87,7 @@ fn main() -> Result<(), Error> {
         )
     };
 
-    let (protein_lines, clusters, hotspots) = xdrugpy_hotspot_finder::find_hotspots(
+    let (protein_lines, clusters, hotspots) = xdrugpy_xhf::find_hotspots(
         pdb_str,
         args.clash_threshold,
         args.num_pseudoatoms,
@@ -98,7 +98,7 @@ fn main() -> Result<(), Error> {
         args.min_cs_strength,
     )?;
 
-    xdrugpy_hotspot_finder::write_pdbstr(
+    xdrugpy_xhf::write_pdbstr(
         &args.group,
         &mut writer,
         protein_lines,

@@ -267,6 +267,7 @@ pub fn find_hotspots(
     let mut prot: Vec<Atom> = Vec::new();
     let mut prot_pdb_lines: Vec<String> = Vec::new();
     let mut clusters: Vec<Cluster> = Vec::new();
+    let mut header_count: usize = 0;
 
     for line in pdb_str.lines() {
         let is_atom: bool = line.starts_with("ATOM ");
@@ -275,7 +276,9 @@ pub fn find_hotspots(
 
         if is_header {
             let title = line[7..line.len()].trim();
-            if !title.contains("protein") {
+            if !title.ends_with("protein") {
+                header_count += 1;
+
                 // Extrai força.
                 let strength: u32 = if title.ends_with(".pdb") {
                     title[(title.len() - 4 - 3)..(title.len() - 4)].parse()
@@ -316,11 +319,11 @@ pub fn find_hotspots(
                         .with_context(|| "Bad PDB file")?,
                 ),
             ];
-            if is_atom {
+            if is_atom && header_count == 0 {
                 prot.push(atom);
                 prot_pdb_lines.push(String::from(&line[..54]));
             }
-            if is_het && let Some(cluster) = clusters.last_mut() {
+            if (is_het ||  (is_atom && header_count > 1)) && let Some(cluster) = clusters.last_mut() {
                 cluster.atoms.push(atom);
                 cluster.pdb_buffer += &line[..54];
                 cluster.pdb_buffer += "\n";

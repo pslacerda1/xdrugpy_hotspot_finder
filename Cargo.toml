@@ -1,5 +1,5 @@
 [package]
-name = "xdrugpy_hotspot_finder"
+name = "xdrugpy_xhf"
 authors = [
     "Pedro Sousa Lacerda <pslacerda@gmail.com>"
 ]
@@ -7,11 +7,11 @@ version = "1.0.0"
 edition = "2024"
 
 [[bin]]
-name = "xdrugpy_hotspot_finder"
+name = "xdrugpy_xhf"
 path = "src/main.rs"
 
 [lib]
-name = "xdrugpy_hotspot_finder"
+name = "xdrugpy_xhf"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

@@ -2,7 +2,7 @@ use approx::assert_relative_eq;
 use std::fs::read_to_string;
 use std::path::PathBuf;
 
-use xdrugpy_hotspot_finder::*;
+use xdrugpy_xhf::*;
 
 #[test]
 fn test_general_loading_8agl() {

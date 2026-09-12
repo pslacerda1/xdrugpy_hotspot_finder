@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        program: ["xdrugpy_hotspot_finder"]
+        program: ["xdrugpy_xhf"]
         os: [ubuntu, windows, macos]
         python-version: ["3.10", "3.12", "3.14"]
         exclude:

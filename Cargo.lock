@@ -751,7 +751,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "xdrugpy_hotspot_finder"
+name = "xdrugpy_xhf"
 version = "1.0.0"
 dependencies = [
  "anyhow",
